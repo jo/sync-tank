@@ -50,3 +50,7 @@ https://en.wikipedia.org/wiki/Distributed_computing
 ## Schema Changes
 "Document databases are really cool… until you have to make a breaking change to the schema. Then it feels like “good luck with all that!” :D"
 https://twitter.com/BenNadel/status/918604059304779776
+
+## Quotes
+"Software development is change management"
+Ashley Williams [A Brief History of Modularity](https://medium.com/r/?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DvypCsVm5z28%26t%3D1s) at JSConf EU 2017
