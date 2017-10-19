@@ -20,3 +20,24 @@
 
 ## Validation
 validation of multi schemas
+
+## Schema
+## v1
+{
+  _id: "todo-item:12312342132",
+  text: "Clean the dishes",
+  isDone: false
+}
+
+## v2
+{
+  _id: "todo-item:12312342132",
+  text: "Clean the dishes",
+  status: "progress"
+}
+
+## v3
+{
+  _id: "todo-item:12312342132:status",
+  status: "progress"
+}
