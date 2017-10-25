@@ -126,7 +126,7 @@ Thinking in terms of implicit schemas as defined by the application's expectatio
   "properties": {
     "_id": {
       "pattern": "^todo-item:[-a-f0-9]{36}$",
-      "type: "string"
+      "type": "string"
     },
 
     "title": {
