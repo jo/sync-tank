@@ -131,11 +131,11 @@ Thinking in terms of implicit schemas as defined by the application's expectatio
 
     "title": {
       "maxLength": 120,
-      "type: "string"
+      "type": "string"
     }
 
     "isDone": {
-      "type: "boolean"
+      "type": "boolean"
     }
   },
 
