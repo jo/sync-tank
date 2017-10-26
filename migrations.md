@@ -2,24 +2,14 @@
 
 ## Table of contents
 1. Introduction
-  - Who are we?
-  - Focus: syncing database/app
-  - What is the problem?
-  - Preview
 
-2. Concepts: Schema and Migrations
-  - "Software development is change management"
-  - distributed system?
-  - schemaless? Implicit Schema
-  - JSON Schema + server-side validations
+2. Setting the stage: A toy example
 
-3. Server-side Todo-app
-  - Setup: couchdb (couch per user), website
-  - Functionality: Todos with done-flag
-  - Schema: title (string), status (boolean)
-  - Reference rails db:migrate
+3. Concepts: Schema, Migrations, and Distributed Systems
 
-4. Non-breaking feature
+4. Server-side Todo-app
+
+5. Non-breaking feature
   - New requirement: important-flag
   - Schema: important (boolean)
   - caveat: app must handle missing attributes
@@ -28,6 +18,7 @@
   - New requirement: enhance done to progress
   - Schema: status (string)
   - transactional (describe migration procedure)
+  - Reference rails db:migrate
 
 6. Client-side migrations
   - New requirement: webapp with offline-support
@@ -65,7 +56,7 @@
   - outlook
 
 
-## Introduction
+## 1 Introduction
 
 Imagine you've done everything right: you've built this big, offline-first, decentralized, scalable system that supports all sorts of clients. Your agile teams are working on different parts of the software ecosystem. The database has become the glue that binds the teams together, the data structure functions as a kind of contract that all teams have agreed on. Of course, your application is live and well, customers are happy - and they demand new features.
 
@@ -85,7 +76,7 @@ Before you follow us deeper into this discussion and open your minds and hearts 
 Moreover Johannes has a decade's worth of experience with distributed databases. He has authored and worked on several widely used tools in the Apache CouchDB ecosystem. He is the main author of the [CouchDB Best Practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines he compiled during his work at [eHealth Africa](https://www.ehealthafrica.org/).
 
 
-## Setting the stage: A toy problem
+## 2 Setting the stage: A toy problem
 
 While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of web applications, the todo-app, though what we have to say is not only relevant for web applications. A simple todo-app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write an article about different strategies for how to accomodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
 
@@ -101,7 +92,7 @@ At this point we have gotten a bit ahead of ourselves and are already discussing
 This is actually a good time to take a step back and clarify some concepts that will be important throughout this whole discussion. Before we talk about schema migrations in distributed systems, let's talk about what schemas and migrations and distributed systems are in the first place.
 
 
-## Basic concepts: schemas, migrations, and distributed systems
+## 3 Basic concepts: schemas, migrations, and distributed systems
 
 ["Software development is change management" - Ashley Williams]
 
@@ -171,5 +162,28 @@ This is a broad definition, which can be made more specific to fit the focus of 
 In this distributed scenario, different applications can make very different use of the same data. An Android App may use the data to display a list of todos to the user while a backend service may be interested in the metadata to build usage profiles. We therefore have software that accesses, processes, and stores data in very different locations and according to their very different requirements. For the whole system to be intact it is mandatory that the structure of the data is not changed in any unforseeable way. The different parts of the system, and consequently the different teams working on the different parts of the system, are bound by an (implicit) contract, by the (implicit) data schema they all have to respect. We may even go one step further and say that *the data schema is the effective database API* of the distributed system because it ultimately defines the way in which data can be accessed. From this perspective, a schema-change implies and API change for any part of the system that is dependent on the data. This is why it is of such importance to have a strategy for dealing with schema-changes.
 
 When migrations become necessary in distributed systems, we run into the complex issues we have already briefly encoutered above. But we're not going to address all of them at once. Instead, let's shift gears and start building our todo-application again, this time from scratch and with only some simple requirements at first.
+
+
+## 4 A Server-side Todo-app
+
+In the simplest of todo-app scenarios, we want to enable a number of users to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a client-side application to provide a nice interface, a server to deliver that application, and a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We can all agree on that. Of course, we will most likely not agree on the technology stack to actually build this, including which database system to make use of. Let us sketch out our approach.
+
+You might be tempted to go for a big relational database where you store user data and todo items and implement has-many relations between them via foreign keys. We've all done that at some point. But here we anticipate that we will need a lot of flexibility in the future and that this big, centralized RDBMS might not be malleable enough to adapt to our upcoming needs, especially when it comes to offline-capable client applications at some point. This is why we advocate a different choice at this point and begin developing our todo-app using Apache CouchDB. In case you didn't know,
+
+> "Apache CouchDB™ lets you access your data where you need it by defining the Couch Replication Protocol that is implemented by a variety of projects and products that span every imaginable computing environment from globally distributed server-clusters, over mobile phones to web browsers."
+>
+> From the official Apache CouchDB Documentation
+
+That sounds promising, doesn't it? Now the way we set up the system is according to a common practice in the CouchDB world: each user gets their own database on the server and can connect to it through a client application. This means there is no way to get access to anybody else's data and we don't even have to worry about things like associations and foreign keys for the time being. Everybody manages their own todos in in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find out that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect (unlike when you run out of space with your relational database).
+
+For now, this piecemeal approach of worrying about one user and one database at a time simplifies our problem. To complete the first step and bring version one of our todo-app to the market, all there is to do as far as the schema is concerned is to decide how a single todo item is supposed to look. And since we wanted to start simple, and since the *sine qua non* of a todo item is basically just a title and a flag, here's an example of the first, launch-ready version of a valid todo item document to be stored in a user's CouchDB:
+
+```js
+{
+  "_id": "todo-item:cde95c3861f9f585d5608fcd35000a7a",
+  "title": "reimplement my pet project in Rust",
+  "isDone": true
+}
+```
 
 

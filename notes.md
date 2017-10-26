@@ -41,3 +41,6 @@ validation of multi schemas
   _id: "todo-item:12312342132:status",
   status: "progress"
 }
+
+
+- [How can users share todo-lists? E.g. they want to build teams? Maybe todos are copied over? But how is this synced? Is it necessary to introduce a backend service?]
