@@ -9,16 +9,7 @@
 
 4. Server-side Todo-app
 
-5. Non-breaking feature
-  - New requirement: important-flag
-  - Schema: important (boolean)
-  - caveat: app must handle missing attributes
-
 5. Transactional Migration
-  - New requirement: enhance done to progress
-  - Schema: status (string)
-  - transactional (describe migration procedure)
-  - Reference rails db:migrate
 
 6. Client-side migrations
   - New requirement: webapp with offline-support
@@ -131,8 +122,7 @@ Thinking in terms of implicit schemas as defined by the application's expectatio
   },
 
   "required": [
-    "title",
-    "isDone"
+    "title"
   ]
 }
 
@@ -186,4 +176,41 @@ For now, this piecemeal approach of worrying about one user and one database at 
 }
 ```
 
+## 5 The world is changing: transactional migrations
 
+The first weeks have passed, marketing has done a great job and our app is quite popular, especially with single mothers and young professionals in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
+
+```
+As a web app user
+I want to mark a todo as important
+so that I can find it easier.
+```
+
+Obviously the data schema will need some enhancements in order to store that new information. In particular, we will want to add an `isImportant` flag to each todo-item. This change is rather unobtrusive because it leaves already existing todo items intact: since existing documents will not have the `isImportant` attribute, we can simply treat them as not important by default. All we have to do is make sure the app will be able to handle missing `isImportant` flags.
+
+That was easy. But now let's look at a second feature request that will have a deeper impact on our data structure:
+
+```
+As a web app user
+I want to assign one of many states (`active`, `blocked`, `done`, ...) to a todo item
+so that I can have fine-grained control over its progress.
+```
+
+We already have the `isDone` property in place that keeps track of an item's progress. This will have to be replaced by another property, call it `status`, that we can use to store the different progress states. With this change, a valid todo item might look like this:
+
+```js
+{
+  "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5",
+  "title": "change the world",
+  "isImportant": true,
+  "status": "active"
+}
+```
+
+At this point, we can release a new version of the web app that allows users to set different progress states for their items. But what about the items that have been created in the past? The previous approach does not seem to work: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
+
+One way of doing this would be to provide an adapter that the app can use when handling documents with an older schema. For instance, the app could read an older todo item and automatically treat `isDone` as status `done` and `!isDone` as status `active`. Providing adapters is a valid strategy and we will come back to it in due time, but for the moment there is a much more common practice that is used in this scenario, one which we will call a 'transactional migration'.
+
+Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of doing migrations provides a very straight forward exemplification of this approach. In Rails, we would define a migration that formalizes the schema change (create a new `status` field, move existing `isDone` information into this field, remove the `isDone` field). We would then take the system down, run the migration (the famous `rails db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
+
+This kind of migration procedure is very common for the type of monolithic centralized setup we have described so far. Alas, this is not a viable solution anymore once we ask that our application will continue to work without a connection to the internet.
