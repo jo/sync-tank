@@ -1,50 +1,17 @@
 # Distributed Migration Strategies
 
 ## Table of contents
+
 1. Introduction
-
 2. Setting the stage: A toy example
-
 3. Concepts: Schema, Migrations, and Distributed Systems
-
 4. Server-side Todo-app
-
-5. Transactional Migration
-
+5. The world is changing: transactional migrations
 6. Client-side migrations
-  - New requirement: webapp with offline-support
-  - scenario: couch per client, one device per user
-  - procedure (describe migrate procedure, no migration on the server!)
-  - caveat: single-client only (leads to conflicts)
-
 7. Live Migration
-  - New requirement: multi-client support
-  - scenario: multiple devices per user, connect with one server-db
-  - Schema: extract status to extra document
-  - (similar concerns addressed in best practices)
-  - describe strategy: write adapters: read old versions, write current version
-  - benefit: data-efficient because updates only happen when necessary
-  - caveat: code complexity / adapter abundance vs expensive reads - O(exp)?
-  - caveat: force update of app because old versions cannot be supported
-  - caveat: impossible to drop legacy-app-support or to purge old documents
-
 8. Per-version-database
-  - New requirement: Legacy support
-  - scenario: apps for Android and iOS with update-hurdles
-  - strategy: create a database per version with bi-directional server-side migrations
-  - benefits: single responsibility (easier to maintain and test)
-  - caveat: duplicates build up on the server + lot of data-movement on client
-  - caveat: manage many dbs on the server
-  - caveat: not seamless because upgrade takes time
-
 9. Per-version-documents
-  - more elegant strategy: keep multiple document-versions in the same database
-  - review and repeat context
-  - description
-
 10. Summary and Evaluation
-  - discuss matrix and why we favor last solution
-  - outlook
 
 
 ## 1 Introduction
@@ -214,3 +181,44 @@ One way of doing this would be to provide an adapter that the app can use when h
 Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of doing migrations provides a very straight forward exemplification of this approach. In Rails, we would define a migration that formalizes the schema change (create a new `status` field, move existing `isDone` information into this field, remove the `isDone` field). We would then take the system down, run the migration (the famous `rails db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
 
 This kind of migration procedure is very common for the type of monolithic centralized setup we have described so far. Alas, this is not a viable solution anymore once we ask that our application will continue to work without a connection to the internet.
+
+
+## 6 Client-side migrations
+  
+- New requirement: webapp with offline-support
+- scenario: couch per client, one device per user
+- procedure (describe migrate procedure, no migration on the server!)
+- caveat: single-client only (leads to conflicts)
+
+
+## 7 Live Migration
+
+- New requirement: multi-client support
+- scenario: multiple devices per user, connect with one server-db
+- Schema: extract status to extra document
+- (similar concerns addressed in best practices)
+- describe strategy: write adapters: read old versions, write current version
+- benefit: data-efficient because updates only happen when necessary
+- caveat: code complexity / adapter abundance vs expensive reads - O(exp)?
+- caveat: force update of app because old versions cannot be supported
+- caveat: impossible to drop legacy-app-support or to purge old documents
+
+## 8 Per-version-database
+
+- New requirement: Legacy support
+- scenario: apps for Android and iOS with update-hurdles
+- strategy: create a database per version with bi-directional server-side migrations
+- benefits: single responsibility (easier to maintain and test)
+- caveat: duplicates build up on the server + lot of data-movement on client
+- caveat: manage many dbs on the server
+- caveat: not seamless because upgrade takes time
+
+## 9 Per-version-documents
+
+- more elegant strategy: keep multiple document-versions in the same database
+- review and repeat context
+- description
+
+## 10 Summary and Evaluation
+- discuss matrix and why we favor last solution
+- outlook
