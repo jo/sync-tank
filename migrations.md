@@ -223,3 +223,6 @@ This kind of migration procedure is very common for the type of monolithic centr
 ## 10 Summary and Evaluation
 - discuss matrix and why we favor last solution
 - outlook
+
+
+© 2017 by Matthias Dumke and Johannes J. Schmidt
