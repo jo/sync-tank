@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang=en>
+<meta name=robots content=noindex />
 <meta charset=utf-8>
 <title>CouchDB Migration Strategies</title>
 <meta name=description content="CouchDB migration strategies." />
@@ -17,7 +18,6 @@
     margin: 3ex 0 0 0;
     padding: 6.18vh 10vw;
   }
-  
   body, a {
     color: #291D1E;
   }
@@ -54,6 +54,15 @@
   }
   .highlight pre {
     font-size: 12pt;
+  }
+  @media (max-device-width: 1024px) {
+    body {
+      padding: 2vh 3vw;
+    }
+    .highlight {
+      margin: 1ex -3vw;
+      padding: 1ex 3vw;
+    }
   }
 </style>
 
