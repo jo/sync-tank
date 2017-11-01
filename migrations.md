@@ -258,5 +258,17 @@ outline:
 - discuss matrix and why we favor last solution
 - outlook
 
+|                      | Transactional Migration | Live Migration | Per Version Databases | Per Version Documents |
+| -------------------- | :---------------------: | :------------: | :-------------------: | :-------------------: |
+| Drop Version Support | ***                     | -              | ***                   | **                    |
+| Multiple Versions    | -                       | **             | **                    | ***                   |
+| Legacy App Support   | -                       | -              | ***                   | ***                   |
+| Distributed Systems  | -                       | *              | ***                   | ***                   |
+| Seamless Migration   | -                       | -              | *                     | ***                   |
+| Deduplication        | ***                     | ***            | -                     | **                    |
+| Conflict Safety      | ***                     | ***            | ***                   | ***                   |
+| Purge Version Data   | ***                     | -              | ***                   | *                     |
+| Simplicity           | ***                     | *              | **                    | ***                   |
+
 
 © 2017 by Matthias Dumke and Johannes J. Schmidt
