@@ -146,6 +146,8 @@ For now, this piecemeal approach of worrying about one user and one database at 
 
 ## 5 The world is changing: transactional migrations
 
+![Schematic: transactional migration](images/transactional-migration.svg)
+
 The first weeks have passed, marketing has done a great job and our app is quite popular, especially with single mothers and young professionals in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
 
 ```
@@ -193,6 +195,7 @@ This kind of migration procedure is very common for the type of monolithic centr
 
 
 ## 7 Live Migration
+![Schematic: live migration](images/live-migration.svg)
 
 - New requirement: multi-client support
 - scenario: multiple devices per user, connect with one server-db
@@ -205,6 +208,7 @@ This kind of migration procedure is very common for the type of monolithic centr
 - caveat: impossible to drop legacy-app-support or to purge old documents
 
 ## 8 Per-version-database
+![Schematic: per version database migration](images/per-version-database-migration.svg)
 
 - New requirement: Legacy support
 - scenario: apps for Android and iOS with update-hurdles
@@ -215,6 +219,7 @@ This kind of migration procedure is very common for the type of monolithic centr
 - caveat: not seamless because upgrade takes time
 
 ## 9 Per-version-documents
+![Schematic: per version document migration](images/per-version-document-migration.svg)
 
 - more elegant strategy: keep multiple document-versions in the same database
 - review and repeat context
