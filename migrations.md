@@ -1,4 +1,5 @@
 # Distributed Migration Strategies
+How to handle schema changes in CouchDB
 
 ## Table of contents
 
