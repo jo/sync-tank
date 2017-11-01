@@ -63,12 +63,13 @@
     font-size: 0.8em;
     border: 1px solid black;
     border-collapse: collapse;
+    overflow: auto;
   }
   td, th {
     border: 1px solid black;
     padding: 1ex 1em;
   }
-  @media (max-device-width: 1024px) {
+  @media (max-width: 1024px) {
     body {
       padding: 2vh 3vw;
       font-size: 18px;
@@ -78,6 +79,9 @@
       padding: 1ex 3vw;
     }
     img {
+      max-width: 94vw;
+    }
+    table {
       max-width: 94vw;
     }
   }
