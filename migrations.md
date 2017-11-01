@@ -194,7 +194,18 @@ To fix this, we would like users to be able to access the app and perform all th
 
 Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB]('') for browsers or [Cloudant sync]() for mobile phones that provide CouchDB-like storing capabilites for clients and implement the CouchDB replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
-We're not done yet, though. We do have an application that does not break when the client is offline
+We're not done yet, though. We do have an application that does not break when the client is offline and that synchronizes changes. But how can we stay agile with this kind of setup? Lets put it this way:
+
+> "Document databases are really cool… until you have to make a breaking change to the schema. Then it feels like “good luck with all that!” :D"
+>
+> Ben Nadel
+
+To illustrate the problem, let's get back to our previous example and assume we have a working todo app where we have to upgrade todos from a simple `isDone` to a more detailed `status`. Remember, the app has been live for a while, people are using it in version one and they are working with documents that are stored according to schema version one. If we now want to release version two of the app, we might not reach all users at once because some of them are currently offline thanks to our latest enhancements. So we have to deal with the fact that there are old versions of the app around. And they are working with old versions of the documents. Let's call this the *parallel versions problem.* How can we perform a proper data migration in this scenario? Here are some not so successful attempts to get a feeling for why this problem is tricky.
+
+**First attempt: transactional server-side migration.** Why can't we just reuse the strategy that has worked well before and update all existing documents on the server?
+
+Blah
+
 
 
 
