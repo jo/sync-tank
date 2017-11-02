@@ -40,11 +40,8 @@
   }
   blockquote {
     font-style: italic;
-    font-size: 1.2em;
+    line-height: 1.28;
     color: #725355;
-  }
-  blockquote p {
-    max-width: 35em;
   }
   figure {
     padding: 3ex 0;
@@ -59,6 +56,9 @@
   }
   code.highlighter-rouge {
     font-size: 0.82em;
+  }
+  .language-cucumber {
+    color: green;
   }
   .highlight {
     margin: 1ex -10vw;
@@ -98,8 +98,15 @@
       padding: 0.3ex 0.1em;
     }
   }
+  main {
+    margin-bottom: 12ex;
+  }
+  footer {
+    font-size: 0.8em;
+  }
 </style>
 
 <main>
   {{ content }}
 </main>
+<footer>© 2017 by Matthias Dumke and Johannes J. Schmidt</footer>

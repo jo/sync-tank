@@ -17,6 +17,9 @@ How to handle schema changes in CouchDB
 
 ## 1 Introduction
 
+> Software development is change management - Ashley Williams
+
+
 Imagine you've done everything right: you've built this big, offline-first, decentralized, scalable system that supports all sorts of clients. Your agile teams are working on different parts of the software ecosystem. The database has become the glue that binds the teams together, the data structure functions as a kind of contract that all teams have agreed on. Of course, your application is live and well, customers are happy - and they demand new features.
 
 So you have to change the data structure.
@@ -58,8 +61,6 @@ This is actually a good time to take a step back and clarify some concepts that 
 
 ## 3 Basic concepts: schemas, migrations, and distributed systems
 
-["Software development is change management" - Ashley Williams]
-
 If you want to store and retrieve data in an automated and efficient way, it is important to have some knowledge about the format or structure of this data. This is meta-information specifying things like data attributes and the data types to be used to store them. We would like to think of the **data schema** as all relevant structure-information about the different pieces of data to be stored by an application.
 
 On this general account, a schema formalizes the structure of your data. Many database systems actually require in advance an explicit account of what the data to be stored is going to look like. PostgreSQL for example allows to store relational data where entries have to adhere to one of the [available data formats](https://www.postgresql.org/docs/8.4/static/datatype.html). These formats will even be validated on store-time.
@@ -70,22 +71,23 @@ But even if you opt for a schemaless document database like [MongoDB](https://ww
 >
 > Martin Fowler
 
-Thinking in terms of implicit schemas as defined by the application's expectations may require a change of perspective, but it will benefit us in the long run. Having said that, we would still like to mention that there are tools for making schemas more explicit even when working with schemaless databases. There is, for example, the very flexible [JSON Schema](http://json-schema.org/) specification, and CouchDB is going to introduce server-side validations via the Mango-Query language in the near future. This allows us to harden the data schema, enforcing requirements on the structure of the data before storing it, to the degree we see fit. We might, for example, require the titles of our Todo-items to be strings of a certain maximum length, while we want to pose stricter format-requirements on the ids of our documents, which should be, say, strings that have to match a very specific pattern. To give but one example of how this might look in a JSON-schema document, consider the following abbreviated specification:
+Thinking in terms of implicit schemas as defined by the application's expectations may require a change of perspective, but it will benefit us in the long run. Having said that, we would still like to mention that there are tools for making schemas more explicit even when working with schemaless databases. There is, for example, the very flexible [JSON Schema](http://json-schema.org/) specification, and CouchDB is going to introduce server-side validations via the Mango-Query language in the near future. This allows us to harden the data schema, enforcing requirements on the structure of the data before storing it, to the degree we see fit. We might, for example, require the titles of our Todo-items to be strings of a certain maximum length, while we want to pose stricter format-requirements on the ids of our documents, which should be, say, strings that have to match a very specific pattern. To give but one example of how this might look in a JSON-schema document, consider the following abbreviated specification.
 
-```js
-// using JSON-schema to formalize format-requirements of our Todo-documents...
 
+_Using JSON-schema to formalize format-requirements of our Todo-documents..._
+
+```json
 {
   "id": "todo-item",
 
   "properties": {
     "_id": {
-      "pattern": "^todo-item:[-a-f0-9]{36}$",
+      "pattern": "^todo-item:[a-f0-9]{32}$",
       "type": "string"
     },
 
     "title": {
-      "maxLength": 120,
+      "maxLength": 64,
       "type": "string"
     }
 
@@ -98,11 +100,13 @@ Thinking in terms of implicit schemas as defined by the application's expectatio
     "title"
   ]
 }
+```
 
-// ...and a corresponding valid document
+_...and a corresponding valid document_
 
+```json
 {
-  "_id": "todo-item:00000000-00000000-00000000-00000001",
+  "_id": "todo-item:02cda16f19ed5fe4364f4e6ac400059b",
   "title": "Clean the dishes",
   "isDone": false
 }
@@ -158,7 +162,7 @@ For now, this piecemeal approach of worrying about one user and one database at 
 
 The first weeks have passed, marketing has done a great job and our app is quite popular, especially with single mothers and young professionals in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
 
-```
+```cucumber
 As a web app user
 I want to mark a todo as important
 so that I can find it easier.
@@ -168,7 +172,7 @@ Obviously the data schema will need some enhancements in order to store that new
 
 This change was not too hard to implement. A second request that many users have made is the ability to change the color theme of their app:
 
-```
+```cucumber
 As a web app user
 I want to choose between different color themes
 so that I can express myself by personalizing my tools.
@@ -187,7 +191,7 @@ As with the introduction of an `isImportant` property, the new settings document
 
 So far we have amended the todo-schema and introduced a new document type. Both operations are non-breaking changes to our data schema. But now let's look at yet another feature request that will have a deeper impact on our format:
 
-```
+```cucumber
 As a web app user
 I want to assign one of many states (`active`, `blocked`, `done`, ...) to a todo item
 so that I can have fine-grained control over its progress.
@@ -221,7 +225,7 @@ Up to this point our todo application will simply stop working when the internet
 
 To fix this, we would like users to be able to access the app and perform all the relevant CRUD operations on todo items even if the internet connection is not reliable. Let's make this a feature request:
 
-```
+```cucumber
 As an application user
 I want to edit todo items even when my internet connection is unreliable
 so that I can plan my life without worrying about network quality.
@@ -311,5 +315,3 @@ This approach will work, but only in a restricted environment. In particular, it
 | Purge Version Data   | ***                               | -                   | ***                             | *                               |
 | Simplicity           | ***                               | *                   | **                              | ***                             |
 
-
-© 2017 by Matthias Dumke and Johannes J. Schmidt
