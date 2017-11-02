@@ -248,7 +248,7 @@ outline:
 - caveat: impossible to drop legacy-app-support or to purge old documents
 
 ## 8 Per-version-database
-![Schematic: per version database migration](images/per-version-database-migration.svg)
+![Schematic: per version databases](images/per-version-dbs.svg)
 
 - New requirement: Legacy support
 - scenario: apps for Android and iOS with update-hurdles
@@ -259,7 +259,7 @@ outline:
 - caveat: not seamless because upgrade takes time
 
 ## 9 Per-version-documents
-![Schematic: per version document migration](images/per-version-document-migration.svg)
+![Schematic: per version documents](images/per-version-docs.svg)
 
 - more elegant strategy: keep multiple document-versions in the same database
 - review and repeat context
