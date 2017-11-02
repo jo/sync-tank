@@ -206,8 +206,11 @@ To illustrate the problem, let's get back to our previous example and assume we 
 
 **First attempt: transactional server-side migration.** Why can't we just reuse the strategy that has worked well before and update all existing documents on the server?
 
-Blah
+This means that we would pick a single point in time where we update all documents on the server to be compatible with the new application. To see why this fails, consider the following chain of events: Haneen is using the app, version one, in her browser right now. Now you migrate the documents on the server-side database and prepare to hand out the new version of the app. Meanwhile, Haneen has just updated her todo item. The change takes a moment to synchronize to the server, it may also take some hours if she is currently offline. The updated todo item arrives at the server, but because Haneen is using version one of the app, the document that arrives will be outdated. We have inconsistent data in our database.
 
+**Second attempt: server-side adapters.** Can we update outdated documents when they arrive at the server? We could provide a versioned API, the old app sends old documents to the previous API version, and a service updates the document to the latest version before it gets persisted.
+
+As a general migration strategy, this looks very promising indeed. It would allow us to write adapters for each API version that could migrate documents on the fly, up and down. However, we can not pursue this path further here because CouchDB does not provide any hooks that we could use to insert our adapters into the dataflow. This would have serious consequences for many aspects of the system including the replication mechanism. Since this is not an option, let's not have this discussion right now and focus on what is feasible.
 
 
 
