@@ -30,7 +30,10 @@ How can we make sure different API-versions are still supported in our distribut
 
 At the time of this writing, this is still largely unexplored terrain. You will have a hard time finding articles on this topic, let alone guidelines or collections of best practices. In this article, we will make an effort to start filling this gap. In what follows, you will find a detailed exposition of our thoughts on different strategies for managing distributed data migrations. We will start with simple solutions for simple scenarios and work our way up to the complex offline-first, decentralized, multi-client, scalable systems that we are challenged to build.
 
-![The authors: Matthias and Johannes](images/authors.jpg)
+<figure>
+  <img src="images/authors.jpg" alt="The authors: Matthias and Johannes" />
+  <figcaption>The authors: Matthias and Johannes</figcaption>
+</figure>
 
 Before you follow us deeper into this discussion and open your minds and hearts to what we have to say, you might want to know who we are and what we do and why you would listen to us in the first place. We are: Johannes J. Schmidt and Matthias Dumke, data architects at a company called [immmr](https://www.immmr.com/), a subsidiary of Deutsche Telekom. The company's main product is an offline capable app that brings communication to the next level as they say in the product department. It's designed to operate at a large scale in a distributed scenario. Our agile teams work on Android, iOS, desktop and web clients as well as on server side services. Our role is to ensure a seamless integration of data synchronisation between all clients, which is why we are facing on a daily basis all the above mentioned challenges of changing data structures in an offline capable multi client environment.
 
@@ -148,7 +151,10 @@ For now, this piecemeal approach of worrying about one user and one database at 
 
 ## 5 The world is changing: transactional migrations
 
-![Schematic: transactional migration](images/transactional-migration.svg)
+<figure>
+  <img src="images/transactional-migration.svg" alt="Schematic view of transactional migration" />
+  <figcaption>Figure 1: Transactional Migration</figcaption>
+</figure>
 
 The first weeks have passed, marketing has done a great job and our app is quite popular, especially with single mothers and young professionals in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
 
@@ -226,7 +232,10 @@ This approach will work, but only in a restricted environment. In particular, it
 
 
 ## 7 Live Migration
-![Schematic: live migration](images/live-migration.svg)
+<figure>
+  <img src="images/live-migration.svg" alt="Schematic view of live migration" />
+  <figcaption>Figure 2: Live Migration</figcaption>
+</figure>
 
 - New requirement: multi-client support
 - scenario: multiple devices per user, connect with one server-db
@@ -239,7 +248,10 @@ This approach will work, but only in a restricted environment. In particular, it
 - caveat: impossible to drop legacy-app-support or to purge old documents
 
 ## 8 Per-version-database
-![Schematic: per version databases](images/per-version-dbs.svg)
+<figure>
+  <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
+  <figcaption>Figure 3: Per Version Databases</figcaption>
+</figure>
 
 - New requirement: Legacy support
 - scenario: apps for Android and iOS with update-hurdles
@@ -250,7 +262,10 @@ This approach will work, but only in a restricted environment. In particular, it
 - caveat: not seamless because upgrade takes time
 
 ## 9 Per-version-documents
-![Schematic: per version documents](images/per-version-docs.svg)
+<figure>
+  <img src="images/per-version-docs.svg" alt="Schematic view of per version documents" />
+  <figcaption>Figure 4: Per Version Documents</figcaption>
+</figure>
 
 - more elegant strategy: keep multiple document-versions in the same database
 - review and repeat context
