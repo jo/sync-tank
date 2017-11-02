@@ -181,7 +181,7 @@ We already have the `isDone` property in place that keeps track of an item's pro
 
 At this point, we can release a new version of the web app that allows users to set different progress states for their items. But what about the items that have been created in the past? The previous approach does not seem to work: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
 
-One way of doing this would be to provide an adapter that the app can use when handling documents with an older schema. For instance, the app could read an older todo item and automatically treat `isDone` as status `done` and `!isDone` as status `active`. Providing adapters is a valid strategy and we will come back to it in due time, but for the moment there is a much more common practice that is used in this scenario, one which we will call a 'transactional migration'.
+One way of approaching this issue would be to enable the app themselves to handle documents with a older schemas. We will discuss this approach in more detail in the section on live migration, but for the time being there is a much more common practice that is used in this scenario, one which we will call a 'transactional migration'.
 
 Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of doing migrations provides a very straight forward exemplification of this approach. In Rails, we would define a migration that formalizes the schema change (create a new `status` field, move existing `isDone` information into this field, remove the `isDone` field). We would then take the system down, run the migration (the famous `rails db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
 
@@ -192,9 +192,17 @@ This kind of migration procedure is very common for the type of monolithic centr
 
 Up to this point our todo application will simply stop working when the internet connection is down. Instead of the app, users will get a message that they are offline. Or - even worse - if the connection is unstable they will not even get notified about that but they might simply see a white screen while some request is underway and they will wait and hope for a response and wait and hope for a response and wait and eventually get frustrated.
 
-To fix this, we would like users to be able to access the app and perform all the relevant CRUD operations on todo items even if the internet connection is not reliable. This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can be persisted by the browser. Similarly, all the relevant application data has to be stored on the client.
+To fix this, we would like users to be able to access the app and perform all the relevant CRUD operations on todo items even if the internet connection is not reliable. Let's make this a feature request:
 
-Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB]('') for browsers or [Cloudant sync]() for mobile phones that provide CouchDB-like storing capabilites for clients and implement the CouchDB replication protocol so synchronizing data between different parts of the system becomes simple and fun.
+```
+As an application user
+I want to edit todo items even when my internet connection is unreliable
+so that I can continue to plan my life independently of the network quality.
+```
+
+This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can be persisted by the browser. In any case, all the relevant application data has to be stored on the client.
+
+Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB]('') for browsers or [Cloudant sync]() for phones that provide CouchDB-like storing capabilites for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
 We're not done yet, though. We do have an application that does not break when the client is offline and that synchronizes changes. But how can we stay agile with this kind of setup? Lets put it this way:
 
@@ -210,31 +218,11 @@ This means that we would pick a single point in time where we update all documen
 
 **Second attempt: server-side adapters.** Can we update outdated documents when they arrive at the server? We could provide a versioned API, the old app sends old documents to the previous API version, and a service updates the document to the latest version before it gets persisted.
 
-As a general migration strategy, this looks very promising indeed. It would allow us to write adapters for each API version that could migrate documents on the fly, up and down. However, we can not pursue this path further here because CouchDB does not provide any hooks that we could use to insert our adapters into the dataflow. This would have serious consequences for many aspects of the system including the replication mechanism. Since this is not an option, let's not have this discussion right now and focus on what is feasible.
+As a general migration strategy, this looks very promising indeed. It would allow us to write adapters for each API version that could migrate documents on the fly, up and down. However, we cannot pursue this path further here because CouchDB does not provide any hooks that we could use to insert our adapters into the dataflow. This would have serious consequences for many aspects of the system including the replication mechanism. Since this is not an option, let's not have this discussion right now and focus on what is feasible.
 
+**Third attempt: client-side migrations.** How about performing a transactional migration on the clients? Offline clients could use the old schema as long as they are offline, but once the client is updated to a new version, the first thing it does is migrate all existing data in the client-database which then later syncs the updated data to the server.
 
-
-outline:
-  - requirement: crud on offline todos
-    -> needs a client-side db: introduces sync-problem
-    -> luckily we have couch!
-    -> step back: how can we handle the migration scenario in this context?
-  - offline clients are cool, but bring parallel-version problem
-  - idea: server-side migration
-    -> old app versions write old data
-    -> old app versions cannot read new data
-  - idea: server-side adapter
-    -> provide a versioned api
-    -> latest documents are just written / read
-    -> old documents are transformed back on read and converted to latest version on write
-    -> problem: CouchDB replication does not have a hook
-  - idea: client-side migrations
-    -> when a new app version arrives at the client, migrate old documents
-    -> leads to conflicts
-  - restriction: single-client only, but this is not an option
-    -> Search for alternatives
-
-
+This approach will work, but only in a restricted environment. In particular, it will only work if we have a single client. If your business case allows you to restrict users to only have one single device to use with your application, you might be fine, but once any additional clients enter the stage we are in trouble. Here's why: If you have multiple clients, *each one* will have to perform the transactional migration (otherwise we would be back to the problems we encountered with the first attempt). But if each client updates documents in parallel and syncs them accross the system, this will lead to a large number of update conflicts (read more about [update conflicts]() if you are not too familiar wht how they arise). What's more, if client one is online and has switched to the next version while client two is offline and still using the old version, the updated client will write documents according to the new schema. When client two comes back online it might receive documents via replication that it cannot read. End of story.
 
 
 ## 7 Live Migration
