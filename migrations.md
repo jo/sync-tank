@@ -160,7 +160,26 @@ so that I can find it easier.
 
 Obviously the data schema will need some enhancements in order to store that new information. In particular, we will want to add an `isImportant` flag to each todo-item. This change is rather unobtrusive because it leaves already existing todo items intact: since existing documents will not have the `isImportant` attribute, we can simply treat them as not important by default. All we have to do is make sure the app will be able to handle missing `isImportant` flags.
 
-That was easy. But now let's look at a second feature request that will have a deeper impact on our data structure:
+This change was not too hard to implement. A second request that many users have made is the ability to change the color theme of their app:
+
+```
+As a web app user
+I want to choose between different color themes
+so that I can express myself by personalizing my tools.
+```
+
+Obviously, this feature has no implications for the todo items. We decide to introduce a new document type, a `settings`-document, that will store the color information and perhaps other general requirements that will come up in the future. Since we only need one global settings document, we pick a simple `_id` to store it by.
+
+```js
+{
+  "_id": "settings",
+  "color": "#e20074"
+}
+```
+
+As with the introduction of an `isImportant` property, the new settings document will not cause existing apps to break. Instead, we can use this document to enhance the experience for users of the new app version. If there is no settings document, the application can simply use the default color that already exists.
+
+So far we have amended the todo-schema and introduced a new document type. Both operations are non-breaking changes to our data schema. But now let's look at yet another feature request that will have a deeper impact on our format:
 
 ```
 As a web app user
@@ -185,7 +204,9 @@ One way of approaching this issue would be to enable the app themselves to handl
 
 Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of doing migrations provides a very straight forward exemplification of this approach. In Rails, we would define a migration that formalizes the schema change (create a new `status` field, move existing `isDone` information into this field, remove the `isDone` field). We would then take the system down, run the migration (the famous `rails db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
 
-This kind of migration procedure is very common for the type of monolithic centralized setup we have described so far. Alas, this is not a viable solution anymore once we ask that our application will continue to work without a connection to the internet.
+Figure ??? illustrates the transactional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the magenta app needs magenta documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have just added. Even because we have to change the structure of todo items does not mean we have to change how the settings document looks.
+
+This kind of transactional migration procedure is very common for the type of monolithic centralized setup we have described so far. Alas, this is not a viable solution anymore once we ask that our application will continue to work without a connection to the internet.
 
 
 ## 6 Going offline is harder than it looks
@@ -197,7 +218,7 @@ To fix this, we would like users to be able to access the app and perform all th
 ```
 As an application user
 I want to edit todo items even when my internet connection is unreliable
-so that I can continue to plan my life independently of the network quality.
+so that I can plan my life without worrying about network quality.
 ```
 
 This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can be persisted by the browser. In any case, all the relevant application data has to be stored on the client.
@@ -227,6 +248,9 @@ This approach will work, but only in a restricted environment. In particular, it
 
 ## 7 Live Migration
 ![Schematic: live migration](images/live-migration.svg)
+
+
+
 
 - New requirement: multi-client support
 - scenario: multiple devices per user, connect with one server-db
