@@ -43,8 +43,14 @@ validation of multi schemas
 }
 
 
+- [do we keep the version in the doc-type?]
+
 - [How can users share todo-lists? E.g. they want to build teams? Maybe todos are copied over? But how is this synced? Is it necessary to introduce a backend service?]
 
 - [Should there be more examples now that we switch the focus to CouchDB proper?]
 
-- What's more, if client one is online and has switched to the next version while client two is offline and still using the old version, the updated client will write documents according to the new schema. When client two comes back online it might receive documents via replication that it cannot read. End of story.
+- live migration:
+  * caveat? Document conflicts when new app is writing new documents?
+  * does reading old versions and writing new ones not lead to weird datastates (like not updated old docs that will have to be ignored for all time)
+
+- maybe move the accounting discussion into its own aside because it may be lengthy and relevant across migration strategies

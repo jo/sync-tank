@@ -7,12 +7,13 @@ How to handle schema changes in CouchDB
 2. Setting the stage: A toy example
 3. Concepts: Schema, Migrations, and Distributed Systems
 4. Server-side Todo-app
-5. The world is changing: transactional migrations
-6. Client-side migrations
-7. Live Migration
-8. Per-version-database
-9. Per-version-documents
-10. Summary and Evaluation
+5. The world is changing: new requirements
+6. Transactional migrations
+7. Going offline is harder than it looks
+8. Live Migration
+9. Per-version-database
+10. Per-version-documents
+11. Summary and Evaluation
 
 
 ## 1 Introduction
@@ -286,29 +287,84 @@ As a general migration strategy, this looks very promising indeed. It would allo
 This approach will work, but only in a restricted environment. In particular, it will only work if we have a single client. If your business case allows you to restrict users to only have one single device to use with your application, you might be fine, but once any additional clients enter the stage we are in trouble. Here's why: If you have multiple clients, *each one* will have to perform the transactional migration (otherwise we would be back to the problems we encountered with the first attempt). But if each client updates documents in parallel and syncs them accross the system, this will lead to a large number of update conflicts (read more about [update conflicts]() if you are not too familiar with how they can arise). In principal, CouchDB allows you to handle conflicts and even ignore them so they will be solved automatically, but in this scenario, the large number of conflicts can have an impact on the performance of our system.
 
 
-## 8 Live Migration
+## 8 Client-side live migration
+
+We will use the term 'live migration' to describe on-the-fly transformations of documents to adhere to a different data schema. We have encountered this idea briefly in the previous section when we talked about server-side adapters. Unfortunately, this approach was not feasible. Let's now talk about equipping clients with the necessary capabilities to deal with different schema versions.
+
+The basic idea is to enable an application to read documents with older versions through adapters. Figure 2 illustrates the strategy in broad strokes: an adapter is provided to update the old (white) document type to a newer version which the new app knows how to handle.
+
 <figure>
   <img src="images/live-migration.svg" alt="Schematic view of live migration" />
-  <figcaption>Figure 2: Live Migration</figcaption>
+  <figcaption>
+    <b>Figure 2: Live Migration.</b>
+    <span>
+      An adapter enables the application to read documents of older formats. When it comes to persisting them the app will store the documents in their updated version.
+    </span>
+  </figcaption>
 </figure>
 
-We are about to dive into a discussion of viable migration strategies that match the requirements of our situation.
+To make this point more concrete, let's take another look at our current problem with the todo app. We already have todo items in the system and we want to release a new version of the app that works with new document versions. The application can read and write these new documents, but what if it encounters an older document? In this case, we could provide it with an adapter that takes in old documents and returns new ones. Here's the case in point:
+
+_An adapter takes in a todo item with an old schema:_
+
+```json
+{
+  "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818",
+  "title": "Calculate the carbon footprint of a bitcoin transaction",
+  "isDone": true
+}
+```
+
+_And it returns the updated documents, a todo item and a status-document with a plausible mapping from `isDone` to `status`:_
+
+```json
+{
+  "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818",
+  "title": "Calculate the carbon footprint of a bitcoin transaction"
+}
+```
+
+```json
+{
+  "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818:status",
+  "status": "done"
+}
+```
+
+From this point on the app knows how to proceed. Using the adapter, it can treat older documents just as if they were new ones. This looks like a promising strategy, and it is also very efficient because first there is no need to keep multiple versions of documents around, and second transformations will only happen when they are actually needed. This strategy also addresses the problem that an app that is currently offline may continue to create old documents because it hasn't been updated yet. These documents will be synchronized across the system but they will not cause trouble because newer apps have adapters to deal with them.
+
+While this approach seems quite elegant in the scenario we're facing here, i.e. a small application with a very simple change, it may not be the best solution for more complex situations. Plus it has a major drawback that we'll have to address as well. So let's start talking about the downside of client-side live migrations.
+
+#### Functionality duplication leads to unnecessary code
+
+The first problem to address is one of complexity and maintainability. A bit of accounting can help us get the discussion started. Say we start off with a single document type that is in version `v1`. We now update the schema to `v2`, so the app will need an adapter to deal with the older `v1` documents. After the next update to `v3` the new app will now need two adapters: one to deal with `v2` documents and one to deal with `v1` documents that may also still be around. In general, every app that has ever existed in the system may have left documents in the corresponding old versions around. Since we can never be sure that there are no ancient schema versions around we will have to provide `n - 1` adapters for an app that uses data schema version `n`.
+But there's more. Since clients can be offline or not get updated, older versions of clients need additional adapters to migrate documents up to their specific version and those add up to what we have to maintain. To round off this part of the analysis, let's just say that all app versions that have ever existed may still be used somewhere, and accordingly all document schema versions that have ever existed will need to be supported. If the current schema version number is `n` we would need to provide `n + (n - 1) + (n - 2) + ... + 2 + 1 = n * (n - 1) / 2` adapters.
+
+We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need `t * n * (n - 1) / 2` adapters in total or, amongst friends, `O(t * n^2)` adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
 
 
-outline:
-  - 
-  - now strategies that are more successful
-  - preliminary step: 
+- multiple clients: duplication (adapters in Swift, Java, JavaScript, ...)
+- hard to fix bugs when things happen on the client
+- number of migrators
+- code complexity / adapter abundance vs expensive reads - O(t * v^2)?
 
 
 
-- New requirement: multi-client support
-- scenario: multiple devices per user, connect with one server-db
-- describe strategy: write adapters: read old versions, write current version
-- benefit: data-efficient because updates only happen when necessary
-- caveat: code complexity / adapter abundance vs expensive reads - O(exp)?
-- caveat: force update of app because old versions cannot be supported
-- caveat: impossible to drop legacy-app-support or to purge old documents
+#### No legacy-app dropping and no purging of old documents
+
+#### Old apps have to force users to do updates
+
+This is probably the biggest concern with live migrations but also the hardest to work through so we will discuss this last. It means that an old app has to be shut down until it is updated. For a simple webapp this may be as easy as requiring a page reload, for a desktop app it may require a restart, but for iOS or Android apps it may require users to visit some appstore and go through a whole procedure for upgrading an application. And what if product decides that updates should be paid for by device? Do we shut down all older apps once someone upgrades a single device?
+
+These are serious concerns that arise because we are unable to meet two requirements at the same time:
+
+1. Make sure newer documents do not end up in older applications' databases. If this is violated, the old app will not know how to handle the new documents and may crash.
+2. Make sure documents are synchronized with all relevant associated documents. If this is violated, there may be inconsistent data. Imagine if we had just a status, but the associated todo item was missing, or if we had an address without a user, or a text message without a contact.
+
+It would be possible to enforce the first point on its own. CouchDB provides a mechanism to synchronize only a filtered set of all data (that's called a [filtered replication](...)), and we could use this to exclude data that is too recent to get to clients that are too old. But this would conflict with the second point. If we update only the todo items but not the status then a filtered replication would sync the status documents but filter out the corresponding todo items. This way, a database could end up with status documents without a todo item. The only way to work around this problem is to increase the schema version of *every* document once a single document changes. In a larger setting with dozens or hundreds of document types in the database this would lead to a lot of duplication.
+
+In this section we have introduced client-side live migrations as a viable migration strategy that nonetheless has some serious drawbacks. In the following sections we will direct our attention back to the server as the diver of migrations.
+
 
 ## 9 Per-version-database
 <figure>
