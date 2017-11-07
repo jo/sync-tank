@@ -47,7 +47,7 @@ Moreover Johannes has a decade's worth of experience with distributed databases.
 
 While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of web applications, the todo-app, though what we have to say is not only relevant for web applications. A simple todo-app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write an article about different strategies for how to accomodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
 
-1. Users should be able to edit their todos even when their internet connection is unstable or down and the application should syncronize all changes once it re-connects. In other words: the app must be offline-capable (what exactly this means will become clearer as we go along).
+1. Users should be able to edit their todos even when their internet connection is unstable or down and the application should synchronize all changes once it re-connects. In other words: the app must be offline-capable (what exactly this means will become clearer as we go along).
 2. The application development should be agile, meaning that we want to support frequent changes to all aspects of the system, including the data schema.
 
 These two requirements lead us to think about distributed migrations. Because imagine product comes up the next day with their latest idea: a todo should no longer just be open or done but should hold a number of different progress states like 'started', 'blocked', 'rejected', 'completed', etc. No problem, right? We just tweak the schema a bit, the todo state is no longer a Boolean but some form of String or Enum that can hold multiple values and we are done. - But wait, what about the todos that are already in the system? - Maybe we can update them? Or maybe the apps should be able to deal with both kinds of todos? - So we should support two schema versions now and old documents are still valid? And what if someone is using the old version of the app on their phone? The old version doesn't know anything about the new progress states. How could it possibly deal with documents of the new format? - We could force people to upgrade their apps so everybody at least agrees on the new schema. - So you want to make the entire application unusable unless someone goes to the appstore and updates to the latest version? This is not very appealing. - Do you have a better idea?
@@ -116,7 +116,7 @@ In short, introducing format-requirements on schemaless databases opens up a spa
 
 Flexibility of the (implicit) data schema becomes important once the application starts to change. Let's revisit the example from above: our todo-app is suddenly required to deal not just with a done-state that can be true of false, but is supposed to display one of many progress-states. If we decide to completely remove the done-state and replace it with a progress-state, we will have to change all the existing todos when we deploy the new version of our application. Changing existing data to adhere to new requirements is called a **data migration**.
 
-In the current example, we are not *forced* to migrate existing data. It would be possible to get around a migration if we kept the done-state, introduced a new progess-state, and gave our application the ability to deal with both versions of todo-documents. Of course, this strategy has its own problems, as we will discuss in greater detail below. For now, we would just like to settle on an account of what data migrations are: they are changes to the structure and format of existing data to meet new requirements.
+In the current example, we are not *forced* to migrate existing data. It would be possible to get around a migration if we kept the done-state, introduced a new progress-state, and gave our application the ability to deal with both versions of todo-documents. Of course, this strategy has its own problems, as we will discuss in greater detail below. For now, we would just like to settle on an account of what data migrations are: they are changes to the structure and format of existing data to meet new requirements.
 
 The last concept to address are **distributed systems**. According to the Wikipedia,
 
@@ -128,7 +128,7 @@ This is a broad definition, which can be made more specific to fit the focus of 
 
 In this distributed scenario, different applications can make very different use of the same data. An Android App may use the data to display a list of todos to the user while a backend service may be interested in the metadata to build usage profiles. We therefore have software that accesses, processes, and stores data in very different locations and according to their very different requirements. For the whole system to be intact it is mandatory that the structure of the data is not changed in any unforseeable way. The different parts of the system, and consequently the different teams working on the different parts of the system, are bound by an (implicit) contract, by the (implicit) data schema they all have to respect. We may even go one step further and say that *the data schema is the effective database API* of the distributed system because it ultimately defines the way in which data can be accessed. From this perspective, a schema-change implies and API change for any part of the system that is dependent on the data. This is why it is of such importance to have a strategy for dealing with schema-changes.
 
-When migrations become necessary in distributed systems, we run into the complex issues we have already briefly encoutered above. But we're not going to address all of them at once. Instead, let's shift gears and start building our todo-application again, this time from scratch and with only some simple requirements at first.
+When migrations become necessary in distributed systems, we run into the complex issues we have already briefly encountered above. But we're not going to address all of them at once. Instead, let's shift gears and start building our todo-application again, this time from scratch and with only some simple requirements at first.
 
 
 ## 4 A Server-side Todo-app
@@ -153,12 +153,7 @@ For now, this piecemeal approach of worrying about one user and one database at 
 }
 ```
 
-## 5 The world is changing: transactional migrations
-
-<figure>
-  <img src="images/transactional-migration.svg" alt="Schematic view of transactional migration" />
-  <figcaption>Figure 1: Transactional Migration</figcaption>
-</figure>
+## 5 The world is changing: new requirements
 
 The first weeks have passed, marketing has done a great job and our app is quite popular, especially with single mothers and young professionals in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
 
@@ -178,7 +173,7 @@ I want to choose between different color themes
 so that I can express myself by personalizing my tools.
 ```
 
-Obviously, this feature has no implications for the todo items. We decide to introduce a new document type, a `settings`-document, that will store the color information and perhaps other general requirements that will come up in the future. Since we only need one global settings document, we pick a simple `_id` to store it by.
+Obviously, this feature has no implications for the todo items. We decide to introduce a new document type, a `settings`-document, that will store the color information and perhaps other general requirements that will come up in the future. Since we only need one global settings document, we can set the `_id` to something simple.
 
 ```js
 {
@@ -187,9 +182,9 @@ Obviously, this feature has no implications for the todo items. We decide to int
 }
 ```
 
-As with the introduction of an `isImportant` property, the new settings document will not cause existing apps to break. Instead, we can use this document to enhance the experience for users of the new app version. If there is no settings document, the application can simply use the default color that already exists.
+As with the introduction of an `isImportant` property, the new settings document will not cause existing apps to break. Instead, we can use this document to enhance the experience for users of the new app version. If there is no settings document, the application can simply use the default color that already exists. And if an older app does not know how to deal with settings-documents, it may safely ignore it.
 
-So far we have amended the todo-schema and introduced a new document type. Both operations are non-breaking changes to our data schema. But now let's look at yet another feature request that will have a deeper impact on our format:
+So far we have amended the todo-schema and introduced a new document type. Both operations are non-breaking changes to our data schema. But now let's look at yet another feature request that will have a deeper impact on our data format:
 
 ```cucumber
 As a web app user
@@ -197,9 +192,9 @@ I want to assign one of many states (`active`, `blocked`, `done`, ...) to a todo
 so that I can have fine-grained control over its progress.
 ```
 
-We already have the `isDone` property in place that keeps track of an item's progress. This will have to be replaced by another property, call it `status`, that we can use to store the different progress states. With this change, a valid todo item might look like this:
+We already have the `isDone` property in place that keeps track of an item's progress. This will have to be replaced by another property, call it `status`, that we can use to store the different progress states. You might be tempted to simply replace one field with another, which would lead to documents like the following:
 
-```js
+```json
 {
   "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5",
   "title": "change the world",
@@ -208,18 +203,53 @@ We already have the `isDone` property in place that keeps track of an item's pro
 }
 ```
 
-At this point, we can release a new version of the web app that allows users to set different progress states for their items. But what about the items that have been created in the past? The previous approach does not seem to work: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
+This is a valid strategy, but let's take a moment to go the extra mile and think about an even better solution. Up to this point, a todo item was a rather coherent set of attributes. Yes, a title may change, people were able to mark todos as important and at some point in time many of the items would have been marked as done. In all those cases the document would have to be updated. However, these changes can be expected to be relatively rare. In contrast, we're now introducing the concept of a multi-valued status that may change many times across the lifetime of a todo item. It would be great if we didn't have to update the whole document every time someone changes the status. This is why we propose to split the document in two, have a todo item document and save the status separately in a new document type.
 
-One way of approaching this issue would be to enable the app itself to handle documents with older schemas. We will discuss this approach in more detail in the section on live migrations, but for the time being there is a much more common practice that is used in this scenario, one which we will call 'transactional migration'.
+_The remaining core todo item..._
 
-Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of doing migrations provides a very straight forward exemplification of this approach. In Rails, we would define a migration that formalizes the schema change (create a new `status` field, move existing `isDone` information into this field, remove the `isDone` field). We would then take the system down, run the migration (the famous `rails db:migrate`, formerly `rake db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
+```json
+{
+  "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5",
+  "title": "change the world",
+  "isImportant": true
+}
+```
 
-Figure ??? illustrates the transactional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the magenta app needs magenta documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have just added. Even because we have to change the structure of todo items does not mean we have to change how the settings document looks.
+_...and the corresponding status document._
 
-This kind of transactional migration procedure is very common for the type of monolithic centralized setup we have described so far. Alas, this is not a viable solution anymore once we ask that our application will continue to work without a connection to the internet.
+```json
+  "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5:status",
+  "status": "active"
+}
+```
+
+Note how the association of status and todo item is established via the `_id`-attribute that is not just used to determine the document type. Splitting the document allows us to group attributes together that change together frequently. Here is not the place to get into a detailed discussion of this aspect of data-design, but we hope it has wet your appetite to learn more. If that's the case, check out the [couchdb-best-practices]() guidelines.
+
+At this point, we have reacted to the last of the incoming feature requests. We can release a new version of the web app that allows users to set different progress states for their items. But what about the items that have been created in the past? The previous approach does not seem to work: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
 
 
-## 6 Going offline is harder than it looks
+## 6 Transactional migrations
+
+We are now at a point where a new version of an application is confronted with older documents in the system that it does not know how to handle. One way of approaching this issue would be to make the app more complex to enable it to deal with older schemas. We will discuss this approach in more detail in the section on live migrations, but for the time being there is a much more common practice that is used in this scenario, one which changes not the app but the data. We will call this approach a 'transactional migration'.
+
+<figure>
+  <img src="images/transactional-migration.svg" alt="Schematic view of transactional migration" />
+  <figcaption>
+    <b>Figure 1: Transactional Migration.</b>
+    <span>
+      Introducing a new version of an application may require us to update existing documents (white) to a new version (magenta). This switch happens at a single point in time. Some documents (two-colored example) can be handled by both app versions and do not need to be transformed at all.
+    </span>
+  </figcaption>
+</figure>
+
+Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of handling migrations provides a very straight forward example of this approach. In Rails we would define a migration that formalizes the schema change (prepare the database to store the new `status`, move existing `isDone` information over into the `status`, `isDone` field from the todo item table). We would then take the system down, run the migration (the famous `rails db:migrate`, formerly `rake db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
+
+_Figure 1_ illustrates the transactional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the magenta app needs magenta documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have added previously. Even if we have to change the structure of todo items does not mean we have to change how the settings document looks.
+
+This kind of transactional migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we ask that our application continue to work without a connection to the internet.
+
+
+## 7 Going offline is harder than it looks
 
 Up to this point our todo application will simply stop working when the internet connection is down. Instead of the app, users will get a message that they are offline. Or - even worse - if the connection is unstable they will not even get notified about that but they might simply see a white screen while some request is underway and they will wait and hope for a response and wait and hope for a response and wait and eventually get frustrated.
 
@@ -233,7 +263,7 @@ so that I can plan my life without worrying about network quality.
 
 This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can be persisted by the browser. In any case, all the relevant application data has to be stored on the client.
 
-Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB]('') for browsers or [Cloudant sync]() for phones that provide CouchDB-like storing capabilites for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
+Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB]('') for browsers or [Cloudant sync]() for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
 We're not done yet, though. We do have an application that does not break when the client is offline and that synchronizes changes. But how can we stay agile with this kind of setup? Lets put it this way:
 
@@ -253,29 +283,34 @@ As a general migration strategy, this looks very promising indeed. It would allo
 
 **Third attempt: client-side migrations.** How about performing a transactional migration on the clients? Offline clients could use the old schema as long as they are offline, but once the client is updated to a new version, the first thing it does is migrate all existing data in the client-database which then later syncs the updated data to the server.
 
-This approach will work, but only in a restricted environment. In particular, it will only work if we have a single client. If your business case allows you to restrict users to only have one single device to use with your application, you might be fine, but once any additional clients enter the stage we are in trouble. Here's why: If you have multiple clients, *each one* will have to perform the transactional migration (otherwise we would be back to the problems we encountered with the first attempt). But if each client updates documents in parallel and syncs them accross the system, this will lead to a large number of update conflicts (read more about [update conflicts]() if you are not too familiar wht how they arise). What's more, if client one is online and has switched to the next version while client two is offline and still using the old version, the updated client will write documents according to the new schema. When client two comes back online it might receive documents via replication that it cannot read. End of story.
+This approach will work, but only in a restricted environment. In particular, it will only work if we have a single client. If your business case allows you to restrict users to only have one single device to use with your application, you might be fine, but once any additional clients enter the stage we are in trouble. Here's why: If you have multiple clients, *each one* will have to perform the transactional migration (otherwise we would be back to the problems we encountered with the first attempt). But if each client updates documents in parallel and syncs them accross the system, this will lead to a large number of update conflicts (read more about [update conflicts]() if you are not too familiar with how they can arise). In principal, CouchDB allows you to handle conflicts and even ignore them so they will be solved automatically, but in this scenario, the large number of conflicts can have an impact on the performance of our system.
 
 
-## 7 Live Migration
+## 8 Live Migration
 <figure>
   <img src="images/live-migration.svg" alt="Schematic view of live migration" />
   <figcaption>Figure 2: Live Migration</figcaption>
 </figure>
 
+We are about to dive into a discussion of viable migration strategies that match the requirements of our situation.
+
+
+outline:
+  - 
+  - now strategies that are more successful
+  - preliminary step: 
 
 
 
 - New requirement: multi-client support
 - scenario: multiple devices per user, connect with one server-db
-- Schema: extract status to extra document
-- (similar concerns addressed in best practices)
 - describe strategy: write adapters: read old versions, write current version
 - benefit: data-efficient because updates only happen when necessary
 - caveat: code complexity / adapter abundance vs expensive reads - O(exp)?
 - caveat: force update of app because old versions cannot be supported
 - caveat: impossible to drop legacy-app-support or to purge old documents
 
-## 8 Per-version-database
+## 9 Per-version-database
 <figure>
   <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
   <figcaption>Figure 3: Per Version Databases</figcaption>
@@ -289,7 +324,7 @@ This approach will work, but only in a restricted environment. In particular, it
 - caveat: manage many dbs on the server
 - caveat: not seamless because upgrade takes time
 
-## 9 Per-version-documents
+## 10 Per-version-documents
 <figure>
   <img src="images/per-version-docs.svg" alt="Schematic view of per version documents" />
   <figcaption>Figure 4: Per Version Documents</figcaption>

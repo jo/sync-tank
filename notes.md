@@ -44,3 +44,7 @@ validation of multi schemas
 
 
 - [How can users share todo-lists? E.g. they want to build teams? Maybe todos are copied over? But how is this synced? Is it necessary to introduce a backend service?]
+
+- [Should there be more examples now that we switch the focus to CouchDB proper?]
+
+- What's more, if client one is online and has switched to the next version while client two is offline and still using the old version, the updated client will write documents according to the new schema. When client two comes back online it might receive documents via replication that it cannot read. End of story.
