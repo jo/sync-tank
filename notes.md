@@ -54,3 +54,9 @@ validation of multi schemas
   * does reading old versions and writing new ones not lead to weird datastates (like not updated old docs that will have to be ignored for all time)
 
 - maybe move the accounting discussion into its own aside because it may be lengthy and relevant across migration strategies
+
+- The database has become the glue that binds the teams together, the data structure functions as a kind of contract that all teams have agreed on. 
+
+- Sometimes offline-capability is not just nice to have, but a hard requirement -> mention immmr again
+
+- move Couch-introduction from todo-app chapter to couch-chaper

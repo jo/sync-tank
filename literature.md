@@ -54,3 +54,5 @@ https://twitter.com/BenNadel/status/918604059304779776
 ## Quotes
 "Software development is change management"
 Ashley Williams [A Brief History of Modularity](https://medium.com/r/?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DvypCsVm5z28%26t%3D1s) at JSConf EU 2017
+
+"Designers want to design" (https://medium.com/swlh/designers-will-design-developers-will-develop-and-why-you-must-stop-them-399255275593)
