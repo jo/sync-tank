@@ -6,7 +6,7 @@ How to handle schema changes in CouchDB
 1. Introduction  
 i. Who is CouchDB?
 2. Setting the stage: A toy example
-3. Concepts: Schema, Migrations, and Distributed Systems
+3. Concepts: Schema, Migrations, and Distributed Systems  
 i. Make your schema explicit!  
 4. Server-side Todo-app
 5. The world is changing: new requirements
