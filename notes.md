@@ -60,3 +60,5 @@ validation of multi schemas
 - Sometimes offline-capability is not just nice to have, but a hard requirement -> mention immmr again
 
 - move Couch-introduction from todo-app chapter to couch-chaper
+
+[describe changes feed and backend services in couch-chapter]
