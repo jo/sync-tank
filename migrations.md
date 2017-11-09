@@ -2,23 +2,12 @@
 How to handle schema changes in CouchDB
 
 ## Table of contents
+{:.no_toc}
 
-1. Introduction
-i. Who is CouchDB?
-2. Setting the stage: A toy example
-3. Concepts: Schema, Migrations, and Distributed Systems
-i. Make your schema explicit!
-4. Server-side Todo-app
-5. The world is changing: new requirements
-6. Transactional migrations
-7. Going offline is harder than it looks
-8. Live Migration
-9. Per-version-database
-10. Per-version-documents
-11. Summary and Evaluation
+1. this unordered seed list will be replaced by toc as unordered list
+{:toc}
 
-
-## 1 Introduction
+## Introduction
 
 > Software development is change management - Ashley Williams, [A Brief History of Modularity](https://www.youtube.com/watch?v=vypCsVm5z28) at JSConf EU 2017
 
@@ -45,7 +34,7 @@ Before you follow us deeper into this discussion and open your minds and hearts 
 
 Moreover Johannes has a decade's worth of experience with distributed databases. He has authored and worked on several widely used tools in the Apache CouchDB ecosystem. He is the main author of the [CouchDB Best Practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines he compiled during his work at [eHealth Africa](https://www.ehealthafrica.org/).
 
-## i Who is CouchDB?
+## Who is CouchDB?
 
 - Why CouchDB? -> Sync
 - Offline-Camp
@@ -142,14 +131,14 @@ In this distributed scenario, different applications can make very different use
 
 When migrations become necessary in distributed systems, we run into the complex issues we have already briefly encountered above. But we're not going to address all of them at once. Instead, let's shift gears and start building our todo-application again, this time from scratch and with only some simple requirements at first.
 
-## i Make your schema explicit!
+## Make your schema explicit!
 
 - json schema paragraph from above
 - semver for data schemas
 - validation options
 
 
-## 4 A Server-side Todo-web-app
+## A Server-side Todo-web-app
 
 In the simplest of todo-app scenarios, we want to enable a number of users to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a client-side application to provide a nice interface, a server to deliver that application, and a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We can all agree on that. Of course, we will most likely not agree on the technology stack to actually build this, including which database system to make use of. Let us sketch out our approach.
 
@@ -171,7 +160,7 @@ For now, this piecemeal approach of worrying about one user and one database at 
 }
 ```
 
-## 5 The world is changing: new requirements
+## The world is changing: new requirements
 
 The first weeks have passed, marketing has done a great job and our app is quite popular, especially with young professionals in urban areas that are also single mothers. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
 
@@ -246,7 +235,7 @@ Note how the association of status and todo item is established via the `_id`-at
 At this point, we have reacted to the last of the incoming feature requests. We can release a new version of the web app that allows users to set different progress states for their items. But what about the items that have been created in the past? The previous approach does not seem to work: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
 
 
-## 6 Server-side transactional migrations
+## Server-side transactional migrations
 
 We are now at a point where a new version of an application is confronted with older documents in the system that it does not know how to handle. One way of approaching this issue would be to make the app more complex to enable it to deal with older schemas. We will discuss this approach in more detail in the section on live migrations, but for the time being there is a much more common practice that is used in this scenario, one which changes not the app but the data. We will call this approach a 'transactional migration'.
 
@@ -275,7 +264,7 @@ _Figure 1_ illustrates the transactional migration strategy. It shows how both t
 This kind of transactional migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we ask that our application continue to work without a connection to the internet.
 
 
-## 7 Going offline is harder than it looks
+## Going offline is harder than it looks
 
 Up to this point our todo application will simply stop working when the internet connection is down. Instead of the app, users will get a message that they are offline. Or - even worse - if the connection is unstable they will not even get notified about that but they might simply see a white screen while some request is underway and they will wait and hope for a response and wait and hope for a response and wait and eventually get frustrated.
 
@@ -333,7 +322,7 @@ How about performing a transactional migration on the clients? Offline clients c
 This approach will work, but only in a restricted environment. In particular, it will only work if we have a single client. If your business case allows you to restrict users to only have one single device to use with your application, you might be fine, but once any additional clients enter the stage we are in trouble. Here's why: If you have multiple clients, *each one* will have to perform the transactional migration (otherwise we would be back to the problems we encountered with the first attempt). But if each client updates documents in parallel and syncs them accross the system, this will lead to a large number of update conflicts (read more about [update conflicts]() if you are not too familiar with how they can arise). In principal, CouchDB allows you to handle conflicts and even ignore them so they will be solved automatically, but in this scenario, the large number of conflicts can have an impact on the performance of our system.
 
 
-## 8 Client-side live migration
+## Client-side live migration
 
 We will use the term 'live migration' to describe on-the-fly transformations of documents to adhere to a different data schema. We have encountered this idea briefly in the previous section when we talked about server-side adapters. Unfortunately, this approach was not feasible. Let's now talk about equipping clients with the necessary capabilities to deal with different schema versions.
 
@@ -418,7 +407,7 @@ It would be possible to enforce the first point on its own. CouchDB provides a m
 In this section we have introduced client-side live migrations as a viable migration strategy that nonetheless has some serious drawbacks. In the following sections we will direct our attention back to the server as the diver of migrations.
 
 
-## 9 Per-version-database
+## Per-version-database
 <figure>
   <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
   <figcaption>Figure 3: Per Version Databases</figcaption>
@@ -432,7 +421,7 @@ In this section we have introduced client-side live migrations as a viable migra
 - caveat: manage many dbs on the server
 - caveat: not seamless because upgrade takes time
 
-## 10 Per-version-documents
+## Per-version-documents
 <figure>
   <img src="images/per-version-docs.svg" alt="Schematic view of per version documents" />
   <figcaption>Figure 4: Per Version Documents</figcaption>
@@ -442,7 +431,7 @@ In this section we have introduced client-side live migrations as a viable migra
 - review and repeat context
 - description
 
-## 10 Summary and Evaluation
+## Summary and Evaluation
 - discuss matrix and why we favor last solution
 - outlook
 
