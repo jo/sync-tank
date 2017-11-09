@@ -43,7 +43,7 @@ Moreover Johannes has a decade's worth of experience with distributed databases.
 - Move 'why couchdb' paragraph from below (chapter 4) to here
 
 
-## 2 Setting the stage: A toy problem
+## Setting the stage: A toy problem
 
 While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of apps, the todo-app. A simple todo-app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write an article about different strategies for how to accomodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
 
@@ -59,7 +59,7 @@ At this point we have gotten a bit ahead of ourselves and are already discussing
 This is actually a good time to take a step back and clarify some concepts that will be important throughout this whole discussion. Before we talk about schema migrations in distributed systems, let's talk about what schemas and migrations and distributed systems are in the first place.
 
 
-## 3 Basic concepts: schemas, migrations, and distributed systems
+## Basic concepts: schemas, migrations, and distributed systems
 
 If you want to store and retrieve data in an automated and efficient way, it is important to have some knowledge about the format or structure of this data. This is meta-information specifying things like data attributes and the data types to be used to store them. We would like to think of the **data schema** as all relevant structure-information about the different pieces of data to be stored by an application.
 
