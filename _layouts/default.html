@@ -29,12 +29,22 @@
   li, p {
     max-width: 42em;
   }
-  h1, h2, h3, figcaption {
+  .MathJax_Display {
+    max-width: 42em !important;
+  }
+  h1, h2, h3 {
     font-family: "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", Geneva, Arial, sans-serif;
     font-style: normal;
     line-height: 1.04;
     letter-spacing: -.015em;
     max-width: 30em;
+  }
+  ol, ul {
+    margin: 3ex 1em;
+  }
+  li {
+    margin: 1ex 0;
+    max-width: 38em;
   }
   h2, h3 {
     padding-top: 6ex;
@@ -43,10 +53,12 @@
     font-style: italic;
     line-height: 1.28;
     color: #725355;
+    margin: 3ex 2em;
+    max-width: 38em;
   }
   figure {
-    padding: 3ex 0;
-    margin: 3ex 0;
+    padding: 2ex 0;
+    margin: 6ex 0;
     max-width: 43em;
     text-align: center;
   }
@@ -55,10 +67,10 @@
     font-size: 0.8em;
     line-height: 1.38;
     text-align: center;
-    max-width: 52em;
+    max-width: 52.5em;
   }
   img {
-    max-width: 80vw;
+    max-width: 100%;
   }
   code.highlighter-rouge {
     font-size: 0.82em;
