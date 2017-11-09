@@ -3,11 +3,11 @@ How to handle schema changes in CouchDB
 
 ## Table of contents
 
-1. Introduction  
+1. Introduction
 i. Who is CouchDB?
 2. Setting the stage: A toy example
-3. Concepts: Schema, Migrations, and Distributed Systems  
-i. Make your schema explicit!  
+3. Concepts: Schema, Migrations, and Distributed Systems
+i. Make your schema explicit!
 4. Server-side Todo-app
 5. The world is changing: new requirements
 6. Transactional migrations
@@ -387,12 +387,12 @@ The first problem to address is one of complexity and maintainability. A bit of 
 But there's more. Since clients can be offline or not get updated, older versions of clients need additional adapters to migrate documents up to their specific version and those add up to what we have to maintain. To round off this part of the analysis, let's just say that all app versions that have ever existed may still be used somewhere, and accordingly all document schema versions that have ever existed will need to be supported. If the current schema version number is `n` we would need to provide
 
 $$
-(n - 1) + (n - 2) + ... + 2 + 1 = \sum_{i = 1}^{n - 1} i = n * (n - 1) / 2
+(n - 1) + (n - 2) + ... + 2 + 1 = \sum_{i = 1}^{n - 1} i = \frac{n (n - 1)}{2}
 $$
 
 adapters.
 
-We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need $t * n * (n - 1) / 2$ adapters in total or, amongst friends, $\mathcal{O}(t n^2)$ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
+We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $\mathcal{O}(t n^2)$ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
 
 
 - multiple clients: duplication (adapters in Swift, Java, JavaScript, ...)
