@@ -198,7 +198,7 @@ That sounds promising, doesn't it? Now the way we set up the system is according
 
 For now, this piecemeal approach of worrying about one user and one database at a time simplifies our problem. To complete the first step and bring version one of our todo-app to the market, all there is to do as far as the schema is concerned is to decide how a single todo item is supposed to look. And since we wanted to start simple, and since the *sine qua non* of a todo item is basically just a title and a flag, here's an example of the first, launch-ready version of a valid todo item document to be stored in a user's CouchDB:
 
-```js
+```json
 {
   "_id": "todo-item:cde95c3861f9f585d5608fcd35000a7a",
   "title": "reimplement my pet project in Rust",
@@ -228,7 +228,7 @@ so that I can express myself by personalizing my tools.
 
 Obviously, this feature has no implications for the todo items. We decide to introduce a new document type, a `settings`-document, that will store the color information and perhaps other general requirements that will come up in the future. Since we only need one global settings document, we can set the `_id` to something simple.
 
-```js
+```json
 {
   "_id": "settings",
   "color": "#e20074"
