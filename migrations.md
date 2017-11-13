@@ -278,7 +278,7 @@ We are now at a point where a new version of an application is confronted with o
 
 Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of handling migrations provides a very straight forward example of this approach. In Rails we would define a migration that formalizes the schema change (prepare the database to store the new `status`, move existing `isDone` information over into the `status`, `isDone` field from the todo item table). We would then take the system down, run the migration (the famous `rails db:migrate`, formerly `rake db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
 
-- How to do transaction migration in couch?
+TBD: How to do transaction migration in couch?
 - setup new cluster (simulate transactions)
 - switch to maintenance mode
 - replicate
@@ -328,7 +328,7 @@ What if we still use a transactional migration but amend it in the following way
 This approach would solve the previous problem. If an older app inserted an older document the rest of the system would not have to worry about that because it would only the updated version. To implement this we would need a possibility to listen to incoming documents so we could update them. CouchDB provides such an option through the `changes` endpoint that allows us to keep track of every event that happens in the database. A backend service could watch this endpoint and perform an update if any older document comes in. A closer look at the CouchDB API reveals that change documents basically consist of a change id and the id of the document that was subject to the change. From this it is clear that 
 
 
-Implementation Details:
+TBD: Implementation Details:
   - the old document is replicated to the server-side db
   - we listen to the (-> Global Changes Feed)
   - the document is migrated and the old version is deleted.
@@ -417,8 +417,9 @@ We're not done yet. So far, we have just looked at a single document type, but o
 - code complexity / adapter abundance vs expensive reads - O(t * v^2)?
 
 
-
 #### No legacy-app dropping and no purging of old documents
+
+TBD
 
 #### Old apps have to force users to do updates
 
@@ -433,12 +434,15 @@ It would be possible to enforce the first point on its own. CouchDB provides a m
 
 In this section we have introduced client-side live migrations as a viable migration strategy that nonetheless has some serious drawbacks. In the following sections we will direct our attention back to the server as the diver of migrations.
 
+TBD: we could enhance this strategy with per version documents to support old versions.
 
 ## Per-version-database
 <figure>
   <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
   <figcaption>Figure 3: Per Version Databases</figcaption>
 </figure>
+
+TBD
 
 - New requirement: Legacy support
 - scenario: apps for Android and iOS with update-hurdles
@@ -454,11 +458,16 @@ In this section we have introduced client-side live migrations as a viable migra
   <figcaption>Figure 4: Per Version Documents</figcaption>
 </figure>
 
+TBD
+
 - more elegant strategy: keep multiple document-versions in the same database
 - review and repeat context
 - description
 
 ## Summary and Evaluation
+
+TBD
+
 - discuss matrix and why we favor last solution
 - outlook
 
