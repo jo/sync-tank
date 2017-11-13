@@ -35,12 +35,39 @@ Before you follow us deeper into this discussion and open your minds and hearts 
 Moreover Johannes has a decade's worth of experience with distributed databases. He has authored and worked on several widely used tools in the Apache CouchDB ecosystem. He is the main author of the [CouchDB Best Practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines he compiled during his work at [eHealth Africa](https://www.ehealthafrica.org/).
 
 ## Who is CouchDB?
+TBD
 
-- Why CouchDB? -> Sync
-- Offline-Camp
+Move 'why couchdb' paragraph from below (chapter 4) to here
+
+- Why CouchDB?
+  - scalable document oriented store with map reduce
+  - can sync (multi master replication)
+  - CouchDB is a mature Open Source project under the Apache foundation
+  - clients available for major platforms (Browser, Android, iOS)
+- CouchDB alternatives for sync
+  - [Google Firebase](https://firebase.google.com/products/realtime-database/) (x-platform, Google owned)
+  - [SSB](http://scuttlebot.io/) (JS only)
+  - [GUN](http://gun.js.org/) (JS only)
+  - there are not really production ready x platform open source alternatives
+  - and we already know a lot about CouchDB, so why not?
 - CouchDB basic concepts
+  - http API
+  - databases are lightweight, `PUT $COUCH/my-db`
+  - atoms: documents
+    - `_id` is a db wide unique identifier (string). Put here everything you want to have unique.
+    - `_rev` is optimistic locking mechanism. For each doc a revision tree is maintained. A linear revision history can be branched during replication. Old revisions are removed during compactation, but not so the revision tree.
+    - `_conflicts` can arise during replication in a split brain scenario. CouchDB keeps all conflicting revisions and decides on a deterministic way a winning rev
+  - the [replication protocol](http://docs.couchdb.org/en/2.1.1/replication/protocol.html) based on basic http api
+    - there is pull and push replication, for sync use both
+    - you can filter replication via Mango selectors or (traditionally) by using filter functions
+  - Querying
+    - Map Reduce [Simplied Data Processing on Large Clusters](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf)
+    - [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html) are based on map reduce. Use a declarative JSON syntax to find documents.
 - Background of this article: eHealth, immmr, offline-camp
-- Move 'why couchdb' paragraph from below (chapter 4) to here
+  - Johannes worked on eHA together with Jan Lenard on a first migration concept
+  - when he joined immmr he faced fear of changing data schema
+  - sat together with Ben Kampmann and invented the Per version database migration concept
+  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt and others
 
 
 ## Setting the stage: A toy problem
