@@ -429,6 +429,7 @@ adapters.
 
 We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $\mathcal{O}(t n^2)$ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
 
+TBD
 
 - multiple clients: duplication (adapters in Swift, Java, JavaScript, ...)
 - hard to fix bugs when things happen on the client
