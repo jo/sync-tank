@@ -69,7 +69,7 @@ Move 'why couchdb' paragraph from below (chapter 4) to here
 
 <figure>
   <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
-  <figcaption>Migration session at Offline Camp 2017 Berlin</figcaption>
+  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
 </figure>
 
 
@@ -485,4 +485,11 @@ TBD
 | Conflict Safety      | ***                               | ***                 | ***                             | ***                             |
 | Purge Version Data   | ***                               | -                   | ***                             | *                               |
 | Simplicity           | ***                               | *                   | **                              | ***                             |
+
+
+- Thanks to all the people who helped here
+- Follow us on Github, Twitter
+- Link to repo
+- Ask for feedback, open PR/issue
+
 
