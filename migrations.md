@@ -53,6 +53,7 @@ Move 'why couchdb' paragraph from below (chapter 4) to here
   - databases are lightweight, `PUT $COUCH/my-db`
   - atoms: documents
     - `_id` is a db wide unique identifier (string). Put here everything you want to have unique.
+      - how do use semantic document ids
     - `_rev` is optimistic locking mechanism. For each doc a revision tree is maintained. A linear revision history can be branched during replication. Old revisions are removed during compactation, but not so the revision tree.
     - `_conflicts` can arise during replication in a split brain scenario. CouchDB keeps all conflicting revisions and decides on a deterministic way a winning rev
   - the [replication protocol](http://docs.couchdb.org/en/2.1.1/replication/protocol.html) based on basic http api
@@ -163,9 +164,24 @@ When migrations become necessary in distributed systems, we run into the complex
 
 ## Make your schema explicit!
 
-- json schema paragraph from above
+TBD
+
+add json schema paragraph from above
+
+- each doc should note schema and version
+- schema and versioning
+  - each schema should have own version
+  - version belongs to schema id
 - semver for data schemas
+  - collection of all used schemas should be semantically versioned as database schema version
+  - evaluate breaking/feature/patch from schema perspective
+  - breaking schema is when old docs do not validate against new schema
+  - feature is additional stuff without breaking old documents
+  - fixes are typos in descriptions etc
 - validation options
+  - JSON schema can be validated server side by using `validate_doc_update` function
+  - be careful when only validating server side, client side should also validate
+  - client side validation is also possible with JSON schema
 
 
 ## A Server-side Todo-web-app
