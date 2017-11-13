@@ -45,9 +45,7 @@ Move 'why couchdb' paragraph from below (chapter 4) to here
   - CouchDB is a mature Open Source project under the Apache foundation
   - clients available for major platforms (Browser, Android, iOS)
 - CouchDB alternatives for sync
-  - [Google Firebase](https://firebase.google.com/products/realtime-database/) (x-platform, Google owned)
-  - [SSB](http://scuttlebot.io/) (JS only)
-  - [GUN](http://gun.js.org/) (JS only)
+  - See [Comparison Matrix of Offline Sync Protocols and Implementations by bradley-holt](https://storage.5apps.com/basti/public/shares/171109-2113-index.html) (temporary link, will be published to offline first website)
   - there are not really production ready x platform open source alternatives
   - and we already know a lot about CouchDB, so why not?
 - CouchDB basic concepts
