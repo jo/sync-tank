@@ -65,7 +65,12 @@ Move 'why couchdb' paragraph from below (chapter 4) to here
   - Johannes worked on eHA together with Jan Lenard on a first migration concept
   - when he joined immmr he faced fear of changing data schema
   - sat together with Ben Kampmann and invented the Per version database migration concept
-  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt and others
+  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt, Martin Stadler and others
+
+<figure>
+  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
+  <figcaption>Migration session at Offline Camp 2017 Berlin</figcaption>
+</figure>
 
 
 ## Setting the stage: A toy problem
