@@ -26,18 +26,37 @@
     color: #e20074;
     transition: color 0.25s linear 0s;
   }
+  #markdown-toc a {
+    text-decoration: none;
+  }
+  #markdown-toc li {
+    margin: 0;
+    text-decoration: none;
+  }
   li, p {
     max-width: 42em;
   }
   .MathJax_Display {
-    max-width: 42em !important;
+    font-size: 0.8em;
+    max-width: 52.5em !important;
   }
-  h1, h2, h3 {
+  h1, h2, h3, h4 {
     font-family: "Lucida Grande", "Lucida Sans Unicode", "Lucida Sans", Geneva, Arial, sans-serif;
     font-style: normal;
     line-height: 1.04;
     letter-spacing: -.015em;
-    max-width: 30em;
+  }
+  h1 {
+    max-width: 21em;
+  }
+  h2 {
+    max-width: 28em;
+  }
+  h3 {
+    max-width: 35em;
+  }
+  h4 {
+    max-width: 41em;
   }
   ol, ul {
     margin: 3ex 1em;
@@ -46,7 +65,7 @@
     margin: 1ex 0;
     max-width: 38em;
   }
-  h2, h3 {
+  h2, h3, h4 {
     padding-top: 6ex;
   }
   blockquote {
@@ -59,7 +78,7 @@
   figure {
     padding: 2ex 0;
     margin: 6ex 0;
-    max-width: 43em;
+    max-width: 42em;
     text-align: center;
   }
   figcaption {
@@ -85,8 +104,14 @@
     overflow: auto;
     line-height: 1.18;
   }
+  .language-json .highlight {
+    background-color: #F6F1F5;
+  }
+  .language-cucumber .highlight {
+    background-color: #F1F6F3;
+  }
   .highlight pre {
-    font-size: 12pt;
+    font-size: 0.7em;
   }
   table {
     font-size: 0.8em;

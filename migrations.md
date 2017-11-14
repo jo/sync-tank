@@ -35,15 +35,43 @@ Before you follow us deeper into this discussion and open your minds and hearts 
 Moreover Johannes has a decade's worth of experience with distributed databases. He has authored and worked on several widely used tools in the Apache CouchDB ecosystem. He is the main author of the [CouchDB Best Practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines he compiled during his work at [eHealth Africa](https://www.ehealthafrica.org/).
 
 ## Who is CouchDB?
+TBD
 
-- Why CouchDB? -> Sync
-- Offline-Camp
+Move 'why couchdb' paragraph from below (chapter 4) to here
+
+- Why CouchDB?
+  - scalable document oriented store with map reduce
+  - can sync (multi master replication)
+  - CouchDB is a mature Open Source project under the Apache foundation
+  - clients available for major platforms (Browser, Android, iOS)
+- CouchDB alternatives for sync
+  - See [Comparison Matrix of Offline Sync Protocols and Implementations by bradley-holt](https://storage.5apps.com/basti/public/shares/171109-2113-index.html) (temporary link, will be published to offline first website)
+  - there are not really production ready x platform open source alternatives
+  - and we already know a lot about CouchDB, so why not?
 - CouchDB basic concepts
+  - http API
+  - databases are lightweight, `PUT $COUCH/my-db`
+  - atoms: documents
+    - `_id` is a db wide unique identifier (string). Put here everything you want to have unique.
+      - how do use semantic document ids
+    - `_rev` is optimistic locking mechanism. For each doc a revision tree is maintained. A linear revision history can be branched during replication. Old revisions are removed during compactation, but not so the revision tree.
+    - `_conflicts` can arise during replication in a split brain scenario. CouchDB keeps all conflicting revisions and decides on a deterministic way a winning rev
+  - the [replication protocol](http://docs.couchdb.org/en/2.1.1/replication/protocol.html) based on basic http api
+    - there is pull and push replication, for sync use both
+    - you can filter replication via Mango selectors or (traditionally) by using filter functions
+  - Querying
+    - Map Reduce [Simplied Data Processing on Large Clusters](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf)
+    - [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html) are based on map reduce. Use a declarative JSON syntax to find documents.
 - Background of this article: eHealth, immmr, offline-camp
-- Move 'why couchdb' paragraph from below (chapter 4) to here
-- explain why and how `_id`
-  -> uniqueness
-  -> relationen durch _ids
+  - Johannes worked on eHA together with Jan Lenard on a first migration concept
+  - when he joined immmr he faced fear of changing data schema
+  - sat together with Ben Kampmann and invented the Per version database migration concept
+  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt, Martin Stadler and others
+
+<figure>
+  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
+  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
+</figure>
 
 
 ## Setting the stage: A toy problem
@@ -136,13 +164,22 @@ When migrations become necessary in distributed systems, we run into the complex
 
 ## Make your schema explicit!
 
-- json schema paragraph from above
-- semver for data schemas
-- validation options (validate-update, later through mango in couch)
+TBD
 
-{
-  schema: todo-item-1
-}
+add json schema paragraph from above
+
+- each doc should note schema and version
+- schema and versioning
+  - each schema should have own version
+  - version belongs to schema id
+- semver for data schemas
+  - collection of all used schemas should be semantically versioned as database schema version
+  - evaluate breaking/feature/patch from schema perspective
+  - breaking schema is when old docs do not validate against new schema
+  - feature is additional stuff without breaking old documents
+  - fixes are typos in descriptions etc
+- validation options
+  - JSON schema can be validated server side by using `validate_doc_update` function
 
 
 ## A Server-side Todo-web-app
@@ -159,7 +196,7 @@ That sounds promising, doesn't it? Now the way we set up the system is according
 
 For now, this piecemeal approach of worrying about one user and one database at a time simplifies our problem. To complete the first step and bring version one of our todo-app to the market, all there is to do as far as the schema is concerned is to decide how a single todo item is supposed to look. And since we wanted to start simple, and since the *sine qua non* of a todo item is basically just a title and a flag, here's an example of the first, launch-ready version of a valid todo item document to be stored in a user's CouchDB:
 
-```js
+```json
 {
   "_id": "todo-item:cde95c3861f9f585d5608fcd35000a7a",
   "title": "reimplement my pet project in Rust",
@@ -189,7 +226,7 @@ so that I can express myself by personalizing my tools.
 
 Obviously, this feature has no implications for the todo items. We decide to introduce a new document type, a `settings`-document, that will store the color information and perhaps other general requirements that will come up in the future. Since we only need one global settings document, we can set the `_id` to something simple.
 
-```js
+```json
 {
   "_id": "settings",
   "color": "#e20074"
@@ -258,7 +295,7 @@ We are now at a point where a new version of an application is confronted with o
 
 Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of handling migrations provides a very straight forward example of this approach. In Rails we would define a migration that formalizes the schema change (prepare the database to store the new `status`, move existing `isDone` information over into the `status`, `isDone` field from the todo item table). We would then take the system down, run the migration (the famous `rails db:migrate`, formerly `rake db:migrate`), and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
 
-- How to do transaction migration in couch?
+TBD: How to do transaction migration in couch?
 - setup new cluster (simulate transactions)
 - switch to maintenance mode
 - replicate
@@ -308,7 +345,7 @@ What if we still use a transactional migration but amend it in the following way
 This approach would solve the previous problem. If an older app inserted an older document the rest of the system would not have to worry about that because it would only the updated version. To implement this we would need a possibility to listen to incoming documents so we could update them. CouchDB provides such an option through the `changes` endpoint that allows us to keep track of every event that happens in the database. A backend service could watch this endpoint and perform an update if any older document comes in. A closer look at the CouchDB API reveals that change documents basically consist of a change id and the id of the document that was subject to the change. From this it is clear that 
 
 
-Implementation Details:
+TBD: Implementation Details:
   - the old document is replicated to the server-side db
   - we listen to the (-> Global Changes Feed)
   - the document is migrated and the old version is deleted.
@@ -393,6 +430,7 @@ adapters.
 
 We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $ \mathcal{O}(t n^2) $ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
 
+TBD
 
 - multiple clients: duplication (adapters in Swift, Java, JavaScript, ...)
 - hard to fix bugs when things happen on the client
@@ -401,8 +439,9 @@ We're not done yet. So far, we have just looked at a single document type, but o
 - views have to be adapted as well
 
 
-
 #### No legacy-app dropping and no purging of old documents
+
+TBD
 
 #### Old apps have to force users to do updates
 
@@ -417,12 +456,15 @@ It would be possible to enforce the first point on its own. CouchDB provides a m
 
 In this section we have introduced client-side live migrations as a viable migration strategy that nonetheless has some serious drawbacks. In the following sections we will direct our attention back to the server as the diver of migrations.
 
+TBD: we could enhance this strategy with per version documents to support old versions.
 
 ## Per-version-database
 <figure>
   <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
   <figcaption>Figure 3: Per Version Databases</figcaption>
 </figure>
+
+TBD
 
 - New requirement: Legacy support
 - scenario: apps for Android and iOS with update-hurdles
@@ -438,11 +480,16 @@ In this section we have introduced client-side live migrations as a viable migra
   <figcaption>Figure 4: Per Version Documents</figcaption>
 </figure>
 
+TBD
+
 - more elegant strategy: keep multiple document-versions in the same database
 - review and repeat context
 - description
 
 ## Summary and Evaluation
+
+TBD
+
 - discuss matrix and why we favor last solution
 - outlook
 
@@ -457,4 +504,11 @@ In this section we have introduced client-side live migrations as a viable migra
 | Conflict Safety      | ***                               | ***                 | ***                             | ***                             |
 | Purge Version Data   | ***                               | -                   | ***                             | *                               |
 | Simplicity           | ***                               | *                   | **                              | ***                             |
+
+
+- Thanks to all the people who helped here
+- Follow us on Github, Twitter
+- Link to repo
+- Ask for feedback, open PR/issue
+
 
