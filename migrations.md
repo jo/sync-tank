@@ -41,6 +41,9 @@ Moreover Johannes has a decade's worth of experience with distributed databases.
 - CouchDB basic concepts
 - Background of this article: eHealth, immmr, offline-camp
 - Move 'why couchdb' paragraph from below (chapter 4) to here
+- explain why and how `_id`
+  -> uniqueness
+  -> relationen durch _ids
 
 
 ## Setting the stage: A toy problem
@@ -135,7 +138,11 @@ When migrations become necessary in distributed systems, we run into the complex
 
 - json schema paragraph from above
 - semver for data schemas
-- validation options
+- validation options (validate-update, later through mango in couch)
+
+{
+  schema: todo-item-1
+}
 
 
 ## A Server-side Todo-web-app
@@ -345,6 +352,7 @@ _An adapter takes in a todo item with an old schema:_
 ```json
 {
   "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818",
+  "schema": "todo-item-1",
   "title": "Calculate the carbon footprint of a bitcoin transaction",
   "isDone": true
 }
@@ -355,6 +363,7 @@ _And it returns the updated documents, a todo item and a status-document with a 
 ```json
 {
   "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818",
+  "schema": "todo-item-2",
   "title": "Calculate the carbon footprint of a bitcoin transaction"
 }
 ```
@@ -362,6 +371,7 @@ _And it returns the updated documents, a todo item and a status-document with a 
 ```json
 {
   "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818:status",
+  "schema": "todo-item-status-1",
   "status": "done"
 }
 ```
@@ -381,13 +391,14 @@ $$
 
 adapters.
 
-We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $\mathcal{O}(t n^2)$ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
+We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $ \mathcal{O}(t n^2) $ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
 
 
 - multiple clients: duplication (adapters in Swift, Java, JavaScript, ...)
 - hard to fix bugs when things happen on the client
 - number of migrators
 - code complexity / adapter abundance vs expensive reads - O(t * v^2)?
+- views have to be adapted as well
 
 
 
