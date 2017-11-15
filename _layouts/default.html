@@ -25,13 +25,6 @@
     color: #e20074;
     transition: color 0.25s linear 0s;
   }
-  #markdown-toc a {
-    text-decoration: none;
-  }
-  #markdown-toc li {
-    margin: 0;
-    text-decoration: none;
-  }
   li, p {
     max-width: 42em;
   }
@@ -59,6 +52,19 @@
   li {
     margin: 1ex 0;
     max-width: 38em;
+  }
+  #markdown-toc, #markdown-toc ol {
+    list-style-type: none;
+  }
+  #markdown-toc a {
+    text-decoration: none;
+  }
+  #markdown-toc li {
+    margin: 0;
+    text-decoration: none;
+  }
+  #markdown-toc li ol {
+    margin: 0;
   }
   h2, h3, h4 {
     padding-top: 6ex;
@@ -143,6 +149,18 @@
   }
   footer {
     font-size: 15pt;
+  }
+  @media print {
+    body {
+      line-height: 1;
+      font-size: 12pt;
+    }
+    code, pre {
+      font-size: 10pt;
+    }
+    .highlight {
+      line-height: 1;
+    }
   }
 </style>
 

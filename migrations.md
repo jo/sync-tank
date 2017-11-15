@@ -549,7 +549,7 @@ TBD
   <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
 </figure>
 
-### Summary and Evaluation
+## Summary and Evaluation
 
 TBD
 
