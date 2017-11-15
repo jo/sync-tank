@@ -433,9 +433,54 @@ While this approach seems quite elegant in the scenario we're facing here, i.e. 
 The first problem to address is one of complexity and maintainability. A bit of accounting can help us get the discussion started. Say we start off with a single document type that is in version `v1`. We now update the schema to `v2`, so the app will need an adapter to deal with the older `v1` documents. After the next update to `v3` the new app will now need two adapters: one to deal with `v2` documents and one to deal with `v1` documents that may also still be around. In general, every app that has ever existed in the system may have left documents in the corresponding old versions around. Since we can never be sure that there are no ancient schema versions around we will have to provide `n - 1` adapters for an app that uses data schema version `n`.
 But there's more. Since clients can be offline or not get updated, older versions of clients need additional adapters to migrate documents up to their specific version and those add up to what we have to maintain. To round off this part of the analysis, let's just say that all app versions that have ever existed may still be used somewhere, and accordingly all document schema versions that have ever existed will need to be supported. If the current schema version number is `n` we would need to provide
 
-$$
-(n - 1) + (n - 2) + ... + 2 + 1 = \sum_{i = 1}^{n - 1} i = \frac{n (n - 1)}{2}
-$$
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">(</mo>
+  <mi>n</mi>
+  <mo>&#x2212;<!-- − --></mo>
+  <mn>1</mn>
+  <mo stretchy="false">)</mo>
+  <mo>+</mo>
+  <mo stretchy="false">(</mo>
+  <mi>n</mi>
+  <mo>&#x2212;<!-- − --></mo>
+  <mn>2</mn>
+  <mo stretchy="false">)</mo>
+  <mo>+</mo>
+  <mo>.</mo>
+  <mo>.</mo>
+  <mo>.</mo>
+  <mo>+</mo>
+  <mn>2</mn>
+  <mo>+</mo>
+  <mn>1</mn>
+  <mo>=</mo>
+  <munderover>
+    <mo>&#x2211;<!-- ∑ --></mo>
+    <mrow class="MJX-TeXAtom-ORD">
+      <mi>i</mi>
+      <mo>=</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow class="MJX-TeXAtom-ORD">
+      <mi>n</mi>
+      <mo>&#x2212;<!-- − --></mo>
+      <mn>1</mn>
+    </mrow>
+  </munderover>
+  <mi>i</mi>
+  <mo>=</mo>
+  <mfrac>
+    <mrow>
+      <mi>n</mi>
+      <mo stretchy="false">(</mo>
+      <mi>n</mi>
+      <mo>&#x2212;<!-- − --></mo>
+      <mn>1</mn>
+      <mo stretchy="false">)</mo>
+    </mrow>
+    <mn>2</mn>
+  </mfrac>
+</math>
 
 adapters.
 
