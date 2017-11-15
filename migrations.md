@@ -16,7 +16,7 @@ Imagine you've done everything right: you've built this big, offline-first, dece
 
 So you have to change the data structure.
 
-In a classical monolithic server-side architecture this is more or less a solved problem [cf...], not so for decentralized systems. Here we face two formidable challenges:
+In a classical monolithic server-side architecture this is more or less a [solved problem -> link missing](), not so for decentralized systems. Here we face two formidable challenges:
 
 1. we cannot rely on transactions to transform data, and
 2. there might be clients around that still depend on older versions of the schema.
@@ -277,7 +277,7 @@ _...and the corresponding status document._
 }
 ```
 
-Note how the association of status and todo item is established via the `_id`-attribute that is not just used to determine the document type. Splitting the document allows us to group attributes together that change together frequently. Here is not the place to get into a detailed discussion of this aspect of data-design, but we hope it has wet your appetite to learn more. If that's the case, check out the [couchdb-best-practices]() guidelines.
+Note how the association of status and todo item is established via the `_id`-attribute that is not just used to determine the document type. Splitting the document allows us to group attributes together that change together frequently. Here is not the place to get into a detailed discussion of this aspect of data-design, but we hope it has wet your appetite to learn more. If that's the case, check out the [couchdb-best-practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines.
 
 At this point, we have reacted to the last of the incoming feature requests. We can release a new version of the web app that allows users to set different progress states for their items. But what about the items that have been created in the past? The previous approach does not seem to work: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
 
@@ -325,7 +325,7 @@ so that I can plan my life without worrying about network quality.
 
 This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can be persisted by the browser. In any case, all the relevant application data has to be stored on the client.
 
-Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB]('') for browsers or [Cloudant sync]() for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
+Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB](https://pouchdb.com/) for browsers or [Cloudant sync](https://www.ibm.com/analytics/us/en/technology/offline-first/) for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
 We're not done yet, though. We do have an application that does not break when the client is offline and that synchronizes changes. But how can we stay agile with this kind of setup? Lets put it this way:
 
@@ -366,7 +366,9 @@ As a general migration strategy, this looks very promising indeed. It would allo
 
 How about performing a transactional migration on the clients? Offline clients could use the old schema as long as they are offline, but once the client is updated to a new version, the first thing it does is migrate all existing data in the client-database which then later syncs the updated data to the server.
 
-This approach will work, but only in a restricted environment. In particular, it will only work if we have a single client. If your business case allows you to restrict users to only have one single device to use with your application, you might be fine, but once any additional clients enter the stage we are in trouble. Here's why: If you have multiple clients, *each one* will have to perform the transactional migration (otherwise we would be back to the problems we encountered with the first attempt). But if each client updates documents in parallel and syncs them accross the system, this will lead to a large number of update conflicts (read more about [update conflicts]() if you are not too familiar with how they can arise). In principal, CouchDB allows you to handle conflicts and even ignore them so they will be solved automatically, but in this scenario, the large number of conflicts can have an impact on the performance of our system.
+TBD: outlook to future deterministic ids
+
+This approach will work, but only in a restricted environment. In particular, it will only work if we have a single client. If your business case allows you to restrict users to only have one single device to use with your application, you might be fine, but once any additional clients enter the stage we are in trouble. Here's why: If you have multiple clients, *each one* will have to perform the transactional migration (otherwise we would be back to the problems we encountered with the first attempt). But if each client updates documents in parallel and syncs them accross the system, this will lead to a large number of conflicts. In principal, CouchDB allows you to handle conflicts and even ignore them so they will be solved automatically, but in this scenario, the large number of conflicts can have an impact on the performance of our system.
 
 
 ## Ohne Worte
