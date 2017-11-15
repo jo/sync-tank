@@ -25,6 +25,9 @@ How can we address the problem that there may be clients running older versions 
 
 At the time of this writing, this is still largely unexplored terrain. You will have a hard time finding articles on this topic, let alone guidelines or collections of best practices. In this article, we will make an effort to start filling this gap. In what follows, you will find a detailed exposition of our thoughts on different strategies for managing distributed data migrations in Apache CouchDB. We will start with simple solutions for simple scenarios and work our way up to the complex offline-first, decentralized, multi-client, scalable systems that we are challenged to build.
 
+TBD
+- mention that we have a narrower focus: offline capabiliy and CouchDB
+
 <figure>
   <img src="images/authors.jpg" alt="The authors: Matthias and Johannes" />
   <figcaption>The authors: Matthias and Johannes</figcaption>
@@ -34,75 +37,90 @@ Before you follow us deeper into this discussion and open your minds and hearts 
 
 Moreover Johannes has a decade's worth of experience with distributed databases. He has authored and worked on several widely used tools in the Apache CouchDB ecosystem. He is the main author of the [CouchDB Best Practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines he compiled during his work at [eHealth Africa](https://www.ehealthafrica.org/).
 
-## Who is CouchDB?
-TBD
 
-Move 'why couchdb' paragraph from below (chapter 4) to here
+## Preliminaries: CouchDB, schemas, and migrations
 
-- Why CouchDB?
-  - scalable document oriented store with map reduce
-  - can sync (multi master replication)
-  - CouchDB is a mature Open Source project under the Apache foundation
-  - clients available for major platforms (Browser, Android, iOS)
-- CouchDB alternatives for sync
-  - See [Comparison Matrix of Offline Sync Protocols and Implementations by bradley-holt](https://storage.5apps.com/basti/public/shares/171109-2113-index.html) (temporary link, will be published to offline first website)
-  - there are not really production ready x platform open source alternatives
-  - and we already know a lot about CouchDB, so why not?
-- CouchDB basic concepts
-  - http API
-  - databases are lightweight, `PUT $COUCH/my-db`
-  - atoms: documents
-    - `_id` is a db wide unique identifier (string). Put here everything you want to have unique.
-      - how do use semantic document ids
+Going through a detailed technical discussion will be more fruitful if everybody is on the same page from the beginning. This is why in this part we would like to address a handful of general topics including a refresher on CouchDB, our understanding of schemas, migrations, and distributed systems, as well as best practices for working with data schemas in the wild. If you are already familiar with these topics, feel free to skim or skip this section. In the next part we will begin to take a close look at different migration strategies and illustrate them with an example application.
+
+### Who is CouchDB?
+
+As the title of this article suggests we will narrow down the focus of our discussion to software systems backed by CouchDB. In case you didn't know,
+
+> "Apache CouchDB™ lets you access your data where you need it by defining the Couch Replication Protocol that is implemented by a variety of projects and products that span every imaginable computing environment from globally distributed server-clusters, over mobile phones to web browsers."
+>
+> From the official Apache CouchDB Documentation
+
+We chose to focus on CouchDB because first of all, there is basically no production-ready alternative for a cross-platform data storage that provides synchronization capabilities and is also open source. Check out this [comparison chart](http://offlinefirst.org/sync/) to get an overview of offline capable storage options. And secondly, and pragmatically, we already know a lot about working with CouchDB, so this seems like a sensible place to begin the discussion.
+
+CouchDB is a scalable document oriented store that allows efficient MapReduce data queries via indexing. It is a mature open source project under the Apache foundation that supports clients on all major platforms including web browsers, Android and iOS devices. One of its main features is reliable synchronization of data between different installations via multi master replication (as opposed to master slave replications). We assume some basic familiarity with CouchDB so in the following we will only quickly go over the most important concepts that are relevant in the context of schema migrations. If you need a more in depth introduction to the system, [CouchDB. The definitive Guide](http://guide.couchdb.org/) is a good place to start.
+
+To begin with, let's get some technicalities out of the way: CouchDB provides an HTTP API for all database interactions like storing or retrieving information and managing databases. A single database within the system is just a document that can be created via a simple HTTP request like so: `PUT $COUCH-URL/db-name`. This means that databases are very lightweight and can be created and deleted with ease. As a consequence, and as we shall see below, it is a common practice to create a new database for every user in a system (that's called 'couch-per-user').
+
+Data is transmitted and stored in the form of JSON-documents that can have any valid format you want them to have, plus some attributes such as `_id`, `_rev`, and `_conflicts` that have special meaning. Here's an example document to make this more concrete:
+
+```json
+{
+  "_id": "todo-item:02cda16f19ed5fe4364f4e6ac400059b",
+  "_rev": "3-6c62023877bf5137a4bfcbc819f00c93",
+  "title": "Moonwalk the dog"
+}
+```
+
+This is a JSON-document storing information about a todo item. We will see more of these documents when we start developing the example application in the next part. But for now we want to focus just on the `_id` and `_rev` attributes.
+
+CouchDB uses `_id` to uniquely identify documents. If there is any information you need to be unique throughout the database, put it into the `_id`. If you don't set one yourself, CouchDB will create a UUID for you and set it for you, but we recommend to take the opportunity and store more meaningful information here, in other words: make the `_id` semantic! In the example we store the document type along with a UUID. This allows us to quickly identitfy the kind of document we are dealing with if this id is returned e.g. from a query. It also allows us to extract documents by type via the handy `_all_docs` query. What's more, it is possible to establish relations between documents through the `_id`. For instance, imagine we also want to store the status of a todo item in it's own document. If we set its `_id` to `todo-item:02cda16f19ed5fe4364f4e6ac400059b:status` we will be able to see at a glance that this is a document of type `todo-item-status` and know which todo item it is associated with. Finding a good strategy for creating `_id`s is one of the challenges when it comes to data design. If you want to learn more about this, please refer to the section [embrace the document id](http://ehealthafrica.github.io/couchdb-best-practices/#embrace-the-document-id) of the CouchDB best practices guide.
+
+As was briefly mentioned above, CouchDB allows to retrieve documents by implementing the powerful [MapReduce](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) pattern. In particular, it allows you to create so-called 'views' that define which data should be returned when they are queried. CouchDB will then build indices to find the requested data quickly and efficiently. Since version 2.1.0 CouchDB also allows queries via [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html) that are based on MapRecude and are very performant yet flexible. The ability to query efficiently is of central importance when it comes to data design but there is no need to go into further depth at this point as the discussion of migrations will not require that.
+
+The example document also has a `_rev` attribute. This is a *revision id* that is changed every time a document is updated. In particular, the leading integer before the dash is auto-incremented by CouchDB. This way, the database can keep track of the history of a document. The `_rev` attribute plays an important role when it comes to solving update conflicts between documents.
+
+
+- conflicts
     - `_rev` is optimistic locking mechanism. For each doc a revision tree is maintained. A linear revision history can be branched during replication. Old revisions are removed during compactation, but not so the revision tree.
     - `_conflicts` can arise during replication in a split brain scenario. CouchDB keeps all conflicting revisions and decides on a deterministic way a winning rev
+
+- replication
   - the [replication protocol](http://docs.couchdb.org/en/2.1.1/replication/protocol.html) based on basic http api
     - there is pull and push replication, for sync use both
-    - you can filter replication via Mango selectors or (traditionally) by using filter functions
-  - Querying
-    - Map Reduce [Simplied Data Processing on Large Clusters](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf)
-    - [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html) are based on map reduce. Use a declarative JSON syntax to find documents.
-- Background of this article: eHealth, immmr, offline-camp
-  - Johannes worked on eHA together with Jan Lenard on a first migration concept
-  - when he joined immmr he faced fear of changing data schema
-  - sat together with Ben Kampmann and invented the Per version database migration concept
-  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt, Martin Stadler and others
-
-<figure>
-  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
-  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
-</figure>
 
 
-## Setting the stage: A toy problem
-
-While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of apps, the todo-app. A simple todo-app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write an article about different strategies for how to accomodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
-
-1. Users should be able to edit their todos even when their internet connection is unstable or down and the application should synchronize all changes once it re-connects. In other words: the app must be offline-capable (what exactly this means will become clearer as we go along).
-2. The application development should be agile, meaning that we want to support frequent changes to all aspects of the system, including the data schema.
-
-These two requirements lead us to think about distributed migrations. This may start in the product department, where product managers [obviously](https://medium.com/swlh/designers-will-design-developers-will-develop-and-why-you-must-stop-them-399255275593) want to evolve the app into a full-fledged project management suite.Product decides that a todo should no longer just be open or done but should hold a number of different progress states like 'started', 'blocked', 'rejected', 'completed', etc. No problem, right? We just tweak the schema a bit, the todo state is no longer a Boolean but some form of String or Enum that can hold multiple values and we are done. - But wait, what about the todos that are already in the system? - Maybe we can update them? Or maybe the apps should be able to deal with both kinds of todos? - So we should support two schema versions now and old documents are still valid? And what if someone is using the old version of the app on their phone? The old version doesn't know anything about the new progress states. How could it possibly deal with documents of the new format? - We could force people to upgrade their apps so everybody at least agrees on the new schema. - So you want to make the entire application unusable unless someone goes to the appstore and updates to the latest version? This is not very appealing. - Do you have a better idea?
-
-In fact, we do. Stay tuned.
-
-At this point we have gotten a bit ahead of ourselves and are already discussing migration strategies, albeit in a somewhat hasty and unstructured manner. But at least we understand the problem now.
-
-This is actually a good time to take a step back and clarify some concepts that will be important throughout this whole discussion. Before we talk about schema migrations in distributed systems, let's talk about what schemas and migrations and distributed systems are in the first place.
+For the time being, these notes will suffice as a review of central CouchDB concepts. We will touch upon many of the points throughout the rest of this article. Next up is an explanation of what we have in mind when we talk about schemas, migrations, and distributed systems.
 
 
-## Basic concepts: schemas, migrations, and distributed systems
+### Basic concepts: schemas, migrations, and distributed systems
 
 If you want to store and retrieve data in an automated and efficient way, it is important to have some knowledge about the format or structure of this data. This is meta-information specifying things like data attributes and the data types to be used to store them. We would like to think of the **data schema** as all relevant structure-information about the different pieces of data to be stored by an application.
 
 On this general account, a schema formalizes the structure of your data. Many database systems actually require in advance an explicit account of what the data to be stored is going to look like. PostgreSQL for example allows to store relational data where entries have to adhere to one of the [available data formats](https://www.postgresql.org/docs/8.4/static/datatype.html). These formats will even be validated on store-time.
 
-But even if you opt for a schemaless document dataase you will not get away from data schemas at all. This is because in the end what defines a schema are the assumptions the applications make.
+Document databases like CouchDB are sometimes referred to as *schemaless*. This only means that the database will not force you to make your schema explicit before storing data, it does not mean that your data will not have a schema. In the end, a schema is not defined by the database anyways, but by an *application* expecting data to have a certain format. If you don't make your schema explicit, it will simply be *implicit*.
 
 > "Usually when you're talking to a database you want to get some specific pieces of data out of it: I'd like the price, I'd like the quantity, I'd like the customer. As soon as you are doing that what you are doing is setting up an implicit schema."
 >
 > Martin Fowler, [Introduction to NoSQL](https://www.youtube.com/watch?v=qI_g07C_Q5I)
 
-Thinking in terms of implicit schemas as defined by the application's expectations may require a change of perspective, but it will benefit us in the long run. Having said that, we would still like to mention that there are tools for making schemas more explicit even when working with schemaless databases. There is, for example, the very flexible [JSON Schema](http://json-schema.org/) specification, and CouchDB is going to introduce server-side validations via the Mango-Query language in the near future. This allows us to harden the data schema, enforcing requirements on the structure of the data before storing it, to the degree we see fit. We might, for example, require the titles of our Todo-items to be strings of a certain maximum length, while we want to pose stricter format-requirements on the ids of our documents, which should be, say, strings that have to match a very specific pattern. To give but one example of how this might look in a JSON-schema document, consider the following abbreviated specification.
+Thinking in terms of implicit schemas as defined by the application's expectations may require a change of perspective, but it will benefit us in the long run. Moreover, in an upcoming section we will recommend that schemas be made explicit regardless as this will allow us to be more precise about what some piece of data looks like and to keep track of how it changes over time.
+
+Once the application evolves and starts to make new assumptions about the data, flexibility of the (implicit) schema becomes an issue. With a rather lenient document database like CouchDB it may be possible to simply store some additional information in documents at first, but after a while some documents will become outdated and unable to support the functionality new app versions require. At this point we will be forced to transform existing documents into a new form. Changing existing data to adhere to new requirements is called a **data migration**.
+
+The last concept to address are **distributed systems**. According to the Wikipedia,
+
+> "A distributed system is a model in which components located on networked computers communicate and coordinate their actions by passing messages."
+>
+> Wikipedia, [Distributed computing](https://en.wikipedia.org/wiki/Distributed_computing)
+
+To apply this broad definition to the CouchDB environment, we can interpret database documents as messages, data transfer via replication as message passing, and the various apps on phones and in browers and the backend services as the components located on networked computers. This can mean that data will have to be stored not only on a server but also on user-devices, which in turn must be enabled to synchronize data updates with the rest of the system so all parts can be up to date.
+
+In this distributed scenario, different applications can make very different use of the same data. For instance, an Android app may use data to display a list of todos to the user while a backend service may be interested in the metadata to build usage profiles. We therefore have software that accesses, processes, and stores data in very different locations and according to their very different requirements. For the whole system to be intact it is mandatory that the structure of the data not be changed in any unforseeable way. The different parts of the system, and consequently the different teams working on the different parts of the system, are bound by an (implicit) contract, by the (implicit) data schema they all have to respect. We may even go one step further and say that *the data schema is the effective database API* of the distributed system because it ultimately defines the way in which data can be accessed. From this perspective, a schema-change implies an API change for any part of the system that is dependent on the data. This is why it is of such importance to have a strategy for dealing with schema-changes.
+
+When migrations become necessary in distributed systems, we run into the complex issues this article is about.
+
+
+### Make your schema explicit!
+
+TBD
+
+Having said that, we would still like to mention that there are tools for making schemas more explicit even when working with schemaless databases. There is, for example, the very flexible [JSON Schema](http://json-schema.org/) specification, and CouchDB is going to introduce server-side validations via the Mango-Query language in the near future. This allows us to harden the data schema, enforcing requirements on the structure of the data before storing it, to the degree we see fit. We might, for example, require the titles of our Todo-items to be strings of a certain maximum length, while we want to pose stricter format-requirements on the ids of our documents, which should be, say, strings that have to match a very specific pattern. To give but one example of how this might look in a JSON-schema document, consider the following abbreviated specification.
 
 _Using JSON-schema to formalize format-requirements of our Todo-documents..._
 
@@ -144,27 +162,6 @@ _...and a corresponding valid document_
 
 In short, introducing format-requirements on schemaless databases opens up a space between purely implicit schemas and explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions.
 
-Flexibility of the (implicit) data schema becomes important once the application starts to change. Let's revisit the example from above: our todo-app is suddenly required to deal not just with a done-state that can be true of false, but is supposed to display one of many progress-states. If we decide to completely remove the done-state and replace it with a progress-state, we will have to transform existing todos so that the new version of our application can handle them. Changing existing data to adhere to new requirements is called a **data migration**.
-
-In the current example, we are not *forced* to migrate existing data. It would be possible to get around a migration if we kept the done-state, introduced a new progress-state, and gave our application the ability to deal with both versions of todo-documents. Of course, this strategy has its own problems, as we will discuss in greater detail below. For now, we would just like to settle on an account of what data migrations are: they are changes to the structure and format of existing data to meet new requirements.
-
-The last concept to address are **distributed systems**. According to the Wikipedia,
-
-> "A distributed system is a model in which components located on networked computers communicate and coordinate their actions by passing messages."
->
-> Wikipedia, [Distributed computing](https://en.wikipedia.org/wiki/Distributed_computing)
-
-To apply this broad definition to the CouchDB environment, we can interpret database documents as messages, data transfer via replication as message passing, and the various apps on phones and in browers and the backend services as the components located on networked computers.
-
-In our example we look at a distributed todo application with offline capable clients, which implies that we will have to store data not only on a server but also on the respective user-devices, which in turn must be enabled to synchronize data updates with the rest of the system so all parts can be up to date.
-
-In this distributed scenario, different applications can make very different use of the same data. An Android App may use the data to display a list of todos to the user while a backend service may be interested in the metadata to build usage profiles. We therefore have software that accesses, processes, and stores data in very different locations and according to their very different requirements. For the whole system to be intact it is mandatory that the structure of the data is not changed in any unforseeable way. The different parts of the system, and consequently the different teams working on the different parts of the system, are bound by an (implicit) contract, by the (implicit) data schema they all have to respect. We may even go one step further and say that *the data schema is the effective database API* of the distributed system because it ultimately defines the way in which data can be accessed. From this perspective, a schema-change implies an API change for any part of the system that is dependent on the data. This is why it is of such importance to have a strategy for dealing with schema-changes.
-
-When migrations become necessary in distributed systems, we run into the complex issues we have already briefly encountered above. But we're not going to address all of them at once. Instead, let's shift gears and start building our todo-application again, this time from scratch and with only some simple requirements at first.
-
-## Make your schema explicit!
-
-TBD
 
 add json schema paragraph from above
 
@@ -182,15 +179,29 @@ add json schema paragraph from above
   - JSON schema can be validated server side by using `validate_doc_update` function
 
 
+
+## Setting the stage: A toy problem
+
+While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of software applications, the todo-app. A simple todo-app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write an article about different strategies for how to accomodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
+
+1. Users should be able to edit their todos even when their internet connection is unstable or down and the application should synchronize all changes once it re-connects. In other words: the app must be offline-capable (what exactly this means will become clearer as we go along).
+2. The application development should be agile, meaning that we want to support frequent changes to all aspects of the system, including the data schema.
+
+These two requirements lead us to think about distributed migrations. This may start in the product department, where product managers [obviously](https://medium.com/swlh/designers-will-design-developers-will-develop-and-why-you-must-stop-them-399255275593) want to evolve the app into a full-fledged project management suite.Product decides that a todo should no longer just be open or done but should hold a number of different progress states like 'started', 'blocked', 'rejected', 'completed', etc. No problem, right? We just tweak the schema a bit, the todo state is no longer a Boolean but some form of String or Enum that can hold multiple values and we are done. - But wait, what about the todos that are already in the system? - Maybe we can update them? Or maybe the apps should be able to deal with both kinds of todos? - So we should support two schema versions now and old documents are still valid? And what if someone is using the old version of the app on their phone? The old version doesn't know anything about the new progress states. How could it possibly deal with documents of the new format? - We could force people to upgrade their apps so everybody at least agrees on the new schema. - So you want to make the entire application unusable unless someone goes to the appstore and updates to the latest version? This is not very appealing. - Do you have a better idea?
+
+In fact, we do. Stay tuned.
+
+At this point we have gotten a bit ahead of ourselves and are already discussing migration strategies, albeit in a somewhat hasty and unstructured manner. But at least we understand the problem now.
+
+This is actually a good time to take a step back and clarify some concepts that will be important throughout this whole discussion. Before we talk about schema migrations in distributed systems, let's talk about what schemas and migrations and distributed systems are in the first place.
+
+
 ## A Server-side Todo-web-app
 
 In the simplest of todo-app scenarios, we want to enable a number of users to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a client-side application to provide a nice interface, a server to deliver that application, and a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We can all agree on that. Of course, we will most likely not agree on the technology stack to actually build this, including which database system to make use of. Let us sketch out our approach.
 
-You might be tempted to go for a big relational database where you store user data and todo items and implement has-many relations between them via foreign keys. We've all done that at some point. But here we anticipate that we will need a lot of flexibility in the future and that this big, centralized RDBMS might not be malleable enough to adapt to our upcoming needs, especially when it comes to offline-capable client applications at some point. This is why we advocate a different choice at this point and begin developing our todo-app using Apache CouchDB. In case you didn't know,
+You might be tempted to go for a big relational database where you store user data and todo items and implement has-many relations between them via foreign keys. We've all done that at some point. But here we anticipate that we will need a lot of flexibility in the future and that this big, centralized RDBMS might not be malleable enough to adapt to our upcoming needs, especially when it comes to offline-capable client applications at some point. This is why we advocate a different choice at this point and begin developing our todo-app using Apache CouchDB.
 
-> "Apache CouchDB™ lets you access your data where you need it by defining the Couch Replication Protocol that is implemented by a variety of projects and products that span every imaginable computing environment from globally distributed server-clusters, over mobile phones to web browsers."
->
-> From the official Apache CouchDB Documentation
 
 That sounds promising, doesn't it? Now the way we set up the system is according to a common practice in the CouchDB world: each user gets their own database on the server and can connect to it through a client application. This means there is no way to get access to anybody else's data and we don't even have to worry about things like associations and foreign keys for the time being. Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find out that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect (unlike when you run out of space with your relational database).
 
@@ -485,6 +496,17 @@ TBD
 - more elegant strategy: keep multiple document-versions in the same database
 - review and repeat context
 - description
+
+- Background of this article: eHealth, immmr, offline-camp
+  - Johannes worked on eHA together with Jan Lenard on a first migration concept
+  - when he joined immmr he faced fear of changing data schema
+  - sat together with Ben Kampmann and invented the Per version database migration concept
+  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt, Martin Stadler and others
+
+<figure>
+  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
+  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
+</figure>
 
 ## Summary and Evaluation
 
