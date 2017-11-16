@@ -110,14 +110,14 @@ When migrations become necessary in distributed systems, we run into the complex
 We have already mentioned that even if people may call your database *schemaless* this does not mean you can actually work without a data schema. Granted, you may be able to change your mind at any time and store differently structured information and the database will be fine with that. This is why schemaless databases have a reputation for facilitating flexible development. But at the very least the data schema will be *implicit* as your applications have certain expectations about what kind information there is in the database. We have found that it is very helpful to be more explicit about the schema. Allow us to argue for that:
 
 1. A data schema that is made explicit makes **communication** about data a lot easier. This is true across time (when you come back to your project three months later) and across teams (when the web team is supposed to add the same functionality to their apps as the Android team).
-2. An explicit schema also allows for **format checking**, which can expose bugs in applications earlier, and in general lead to more reliable and consistent data. More reliable and consistent data makes application development not only easier, but practically feasible in the first place.
+2. An explicit schema also allows for format checking and **schema validation**, which can expose bugs in applications earlier, and in general lead to more reliable and consistent data. More reliable and consistent data makes application development not only easier, but practically feasible in the first place.
 3. Finally, an explicit schema can be **versioned** which makes it possible to track how the format changes over time and even to revert to earlier states.
 
-If this has been convincing to you a plausible follow-up question is how to actually make a data schema explicit. There are a number of tools around to help with that. As this article focuses on CouchDB let us first mention that in the near future the CouchDB team will introduce server-side validations via the *Mango* query language. This can be used to enforce requirements on the structure of the data before storing it. You may also know of [JSON schema](http://json-schema.org/), a very flexible schema specification vocabulary. In case you are not familiar with this, here's a simplified example of how we could make the schema of a hypothetical todo item document explicit using JSON schema:
+If this has been convincing to you a plausible follow-up question is how to actually make a data schema explicit. There are a number of tools around to help with that. As this article focuses on CouchDB let us first mention that in the near future the CouchDB team will introduce server-side validations via a *Mango*-like syntax query language. This can be used to enforce requirements on the structure of the data before storing it. You may also know of [JSON schema](http://json-schema.org/), a very flexible schema specification vocabulary. In case you are not familiar with this, here's a simplified example of how we could make the schema of a hypothetical todo item document explicit using JSON schema:
 
 ```json
 {
-  "id": "todo-item",
+  "id": "todo-item-1",
 
   "properties": {
     "_id": {
@@ -126,7 +126,7 @@ If this has been convincing to you a plausible follow-up question is how to actu
     },
 
     "schema": {
-      "pattern": "^todo-item-[0-9]+$",
+      "enum": ["todo-item-1"],
       "type": "string"
     },
 
@@ -141,6 +141,8 @@ If this has been convincing to you a plausible follow-up question is how to actu
   },
 
   "required": [
+    "_id",
+    "schema",
     "title"
   ]
 }
@@ -170,7 +172,10 @@ To sum up this discussion, introducing format-requirements on schemaless databas
 
 ## Fail fast, fail often
 
-TBD
+Failure will often lead to success. When you fail with one approach, you can quickly develop new insights into a problem, and you can free your mind and pivot and try out alternatives. This process will often lead to better results than sticking with one initial strategy could ever achieve. So let's fail in this part. In fact, let's fail a couple of times.
+
+So far we have talked about our understanding of schemas and migrations, we have introduced CouchDB and have made some suggestions for how to work with data schemas in practice. Let's now switch gears and start to look at schema migrations proper. We will illustrate different migrations strategies by looking at an example application that will start out simple and get more complex as we go along. In the spirit of this section, all of the strategies discussed here will have serious drawbacks that should nevertheless prepare us well for the next section where we discuss a select few migration strategies in greater detail.
+
 
 ### Setting the stage: A toy problem
 
@@ -552,6 +557,8 @@ TBD
 </figure>
 
 ## Summary and Evaluation
+
+- The internet is broken
 
 TBD
 
