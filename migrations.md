@@ -288,7 +288,7 @@ At this point, we have reacted to the latest incoming feature request. We can re
 
 We are now at a point where a new version of an application may be confronted with older documents in the system that it does not know how to handle. One way of approaching this issue would be to make the app more complex to enable it to deal with older schemas. We will discuss this approach in more detail in the section on live migrations, but for the time being there is a much more common practice that is used in this scenario, one which changes not the app but the data. We will call this approach a 'transactional migration'.
 
-<figure>
+<figure class="diagram" id="figure-1">
   <img src="images/transactional-migration.svg" alt="Schematic view of transactional migration" />
   <figcaption>
     <b>Figure 1: Transactional Migration.</b>
@@ -302,7 +302,7 @@ Since we have stored all our data in one central database, it will be easy enoug
 
 This same strategy with CouchDB as well. Let us roughly sketch out the main steps to go through when performing a **transactional migration on CouchDB**. First you need to setup a cluster in case you want to revert or abort the migration at some point. Then switch to maintenance mode. Perform a replication of all data from the old to the new cluster. Now run a migration script to update data on the new cluster. If a check verifies that migration was successful, switch to the new cluster and switch off maintenance mode. Done.
 
-_Figure 1_ illustrates the transactional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the green app needs green documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have added previously. Even if we have to change the structure of todo items does not mean we have to change how the settings document looks.
+[Figure 1](#figure-1) illustrates the transactional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the green app needs green documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have added previously. Even if we have to change the structure of todo items does not mean we have to change how the settings document looks.
 
 This kind of transactional migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we ask that our application continue to work without a connection to the internet.
 
@@ -375,9 +375,9 @@ TBD
 
 We will use the term 'live migration' to describe on-the-fly transformations of documents to adhere to a different data schema. We have encountered this idea briefly in the previous section when we talked about server-side adapters. Unfortunately, this approach was not feasible. Let's now talk about equipping clients with the necessary capabilities to deal with different schema versions.
 
-The basic idea is to enable an application to read documents with older versions through adapters. Figure 2 illustrates the strategy in broad strokes: an adapter is provided to update the old (white) document type to a newer version which the new app knows how to handle.
+The basic idea is to enable an application to read documents with older versions through adapters. [Figure 2](#figure-2) illustrates the strategy in broad strokes: an adapter is provided to update the old (white) document type to a newer version which the new app knows how to handle.
 
-<figure>
+<figure class="diagram" id="figure-2">
   <img src="images/live-migration.svg" alt="Schematic view of live migration" />
   <figcaption>
     <b>Figure 2: Live Migration.</b>
@@ -509,7 +509,7 @@ In this section we have introduced client-side live migrations as a viable migra
 TBD: we could enhance this strategy with per version documents to support old versions.
 
 ### Per-version-database
-<figure>
+<figure class="diagram" id="figure-3">
   <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
   <figcaption>Figure 3: Per Version Databases</figcaption>
 </figure>
@@ -525,7 +525,7 @@ TBD
 - caveat: not seamless because upgrade takes time
 
 ### Per-version-documents
-<figure>
+<figure class="diagram" id="figure-4">
   <img src="images/per-version-docs.svg" alt="Schematic view of per version documents" />
   <figcaption>Figure 4: Per Version Documents</figcaption>
 </figure>
