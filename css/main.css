@@ -156,6 +156,9 @@ code, pre {
   font-family: "Courier New", Courier, monospace;
   font-size: 0.84em;
 }
+code {
+  word-wrap: break-word;
+}
 .highlight {
   margin: 1ex -10vw;
   padding: 1ex 10vw;
