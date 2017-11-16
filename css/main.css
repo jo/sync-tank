@@ -87,7 +87,6 @@ h3 {
 h2:before,
 h3:before {
   color: #e20074;
-  padding-right: 0.5em;
   position: absolute;
   left: -2.7em;
   width: 2em;
@@ -210,6 +209,13 @@ th {
   }
   td, th {
     padding: 0.3ex 0.1em;
+  }
+  #markdown-toc li:before,
+  h2:before,
+  h3:before {
+    position: relative;
+    padding-right: 0.5em;
+    text-align: left;
   }
 }
 
