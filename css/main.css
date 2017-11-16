@@ -37,6 +37,12 @@ h1, h2, h3, h4 {
 h1 {
   max-width: 21em;
 }
+h1 + h2 {
+  padding-top: 0;
+  font-weight: normal;
+  font-style: italic;
+  font-size: 1.25em;
+}
 h2 {
   padding-top: 6ex;
   max-width: 28em;
@@ -59,7 +65,7 @@ li {
 }
 
 #markdown-toc {
-  margin: 0 0 0 1.5em;
+  margin: 0 0 0 1.3em;
   padding: 0;
   line-height: 1.28;
 }
@@ -144,7 +150,7 @@ h3:before {
 
 code, pre {
   font-family: "Courier New", Courier, monospace;
-  font-size: 0.8em;
+  font-size: 0.9em;
 }
 .highlight {
   margin: 1ex -10vw;
@@ -158,30 +164,39 @@ code, pre {
   background-color: #F6F1F5;
 }
 .language-cucumber .highlight {
-  color: green;
-  background-color: #F1F6F3;
+  color: #025c55;
+  background-color: #eaf8f6;
+}
+.language-cucumber .err {
+  background-color: transparent;
+}
+code.highlighter-rouge {
+  color: #e20074;
 }
 
 blockquote {
   font-style: italic;
   line-height: 1.28;
-  color: #725355;
+  color: #666;
   margin: 3ex 2em;
   max-width: 38em;
 }
 
 figure {
-  padding: 2ex 0;
+  padding: 4ex 0 0 0;
   margin: 6ex 0;
   max-width: 42em;
   text-align: center;
+  background-color: #eee;
 }
 figcaption {
   margin: 2ex 0 0 0;
+  padding: 4ex 0;
   font-size: 0.8em;
   line-height: 1.38;
   text-align: center;
   max-width: 52.5em;
+  background-color: white;
 }
 img {
   max-width: 100%;
@@ -220,10 +235,19 @@ th {
   #markdown-toc {
     margin: 0;
   }
-  #markdown-toc li,
+  #markdown-toc li {
+    margin-left: 1.3em;
+  }
   h2,
   h3 {
-    margin-left: 1.7em;
+    margin-left: 0;
+  }
+  h2:before,
+  h3:before {
+    position: relative;
+    left: 0;
+    width: auto;
+    text-align: left;
   }
   #markdown-toc li,
   #markdown-toc ol {

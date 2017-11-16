@@ -1,5 +1,6 @@
 # Distributed Migration Strategies
-How to handle schema changes in CouchDB
+## How to handle schema changes in CouchDB
+{:.no_toc}
 
 ## Table of contents
 {:.no_toc}
