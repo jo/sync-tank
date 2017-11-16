@@ -1,3 +1,7 @@
+html {
+  margin: 0;
+  padding: 0;
+}
 body {
   margin: 3ex 0 0 0;
   padding: 6.18vh 10vw;
@@ -231,8 +235,8 @@ th {
     font-size: 14pt;
   }
   .highlight {
-    margin: 1ex -3vw;
-    padding: 1ex 3vw;
+    margin: 1ex -5vw;
+    padding: 1ex 5vw;
   }
   img {
     max-width: 90vw;
