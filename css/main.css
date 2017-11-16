@@ -198,7 +198,7 @@ th {
 
 @media (max-width: 1024px) {
   body {
-    padding: 2vh 3vw;
+    padding: 2vh 5vw;
     font-size: 14pt;
   }
   .highlight {
