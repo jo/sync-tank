@@ -292,7 +292,7 @@ At this point, we have reacted to the last of the incoming feature requests. We 
 
 We are now at a point where a new version of an application is confronted with older documents in the system that it does not know how to handle. One way of approaching this issue would be to make the app more complex to enable it to deal with older schemas. We will discuss this approach in more detail in the section on live migrations, but for the time being there is a much more common practice that is used in this scenario, one which changes not the app but the data. We will call this approach a 'transactional migration'.
 
-<figure id="figure-1">
+<figure class="diagram" id="figure-1">
   <img src="images/transactional-migration.svg" alt="Schematic view of transactional migration" />
   <figcaption>
     <b>Figure 1: Transactional Migration.</b>
@@ -387,7 +387,7 @@ We will use the term 'live migration' to describe on-the-fly transformations of 
 
 The basic idea is to enable an application to read documents with older versions through adapters. [Figure 2](#figure-2) illustrates the strategy in broad strokes: an adapter is provided to update the old (white) document type to a newer version which the new app knows how to handle.
 
-<figure id="figure-2">
+<figure class="diagram" id="figure-2">
   <img src="images/live-migration.svg" alt="Schematic view of live migration" />
   <figcaption>
     <b>Figure 2: Live Migration.</b>
@@ -519,7 +519,7 @@ In this section we have introduced client-side live migrations as a viable migra
 TBD: we could enhance this strategy with per version documents to support old versions.
 
 ### Per-version-database
-<figure id="figure-3">
+<figure class="diagram" id="figure-3">
   <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
   <figcaption>Figure 3: Per Version Databases</figcaption>
 </figure>
@@ -535,7 +535,7 @@ TBD
 - caveat: not seamless because upgrade takes time
 
 ### Per-version-documents
-<figure id="figure-4">
+<figure class="diagram" id="figure-4">
   <img src="images/per-version-docs.svg" alt="Schematic view of per version documents" />
   <figcaption>Figure 4: Per Version Documents</figcaption>
 </figure>

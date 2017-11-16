@@ -201,6 +201,10 @@ figcaption {
 img {
   max-width: 100%;
 }
+figure.diagram img {
+  margin: 0 auto;
+  max-width: 84%;
+}
 
 table {
   font-size: 0.7em;
