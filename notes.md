@@ -63,4 +63,3 @@ validation of multi schemas
 
 [describe changes feed and backend services in couch-chapter]
 
-[But we're not going to address all of them at once. Instead, let's shift gears and start building our todo-application again, this time from scratch and with only some simple requirements at first.]

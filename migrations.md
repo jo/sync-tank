@@ -107,11 +107,13 @@ When migrations become necessary in distributed systems, we run into the complex
 
 ### Make your schema explicit!
 
-TBD
+We have already mentioned that even if people may call your database *schemaless* this does not mean you can actually work without a data schema. Granted, you may be able to change your mind at any time and store differently structured information and the database will be fine with that. This is why schemaless databases have a reputation for facilitating flexible development. But at the very least the data schema will be *implicit* as your applications have certain expectations about what kind information there is in the database. We have found that it is very helpful to be more explicit about the schema. Allow us to argue for that:
 
-Having said that, we would still like to mention that there are tools for making schemas more explicit even when working with schemaless databases. There is, for example, the very flexible [JSON Schema](http://json-schema.org/) specification, and CouchDB is going to introduce server-side validations via the Mango-Query language in the near future. This allows us to harden the data schema, enforcing requirements on the structure of the data before storing it, to the degree we see fit. We might, for example, require the titles of our Todo-items to be strings of a certain maximum length, while we want to pose stricter format-requirements on the ids of our documents, which should be, say, strings that have to match a very specific pattern. To give but one example of how this might look in a JSON-schema document, consider the following abbreviated specification.
+1. A data schema that is made explicit makes **communication** about data a lot easier. This is true across time (when you come back to your project three months later) and across teams (when the web team is supposed to add the same functionality to their apps as the Android team).
+2. An explicit schema also allows for **format checking**, which can expose bugs in applications earlier, and in general lead to more reliable and consistent data. More reliable and consistent data makes application development not only easier, but practically feasible in the first place.
+3. Finally, an explicit schema can be **versioned** which makes it possible to track how the format changes over time and even to revert to earlier states.
 
-_Using JSON-schema to formalize format-requirements of our Todo-documents..._
+If this has been convincing to you a plausible follow-up question is how to actually make a data schema explicit. There are a number of tools around to help with that. As this article focuses on CouchDB let us first mention that in the near future the CouchDB team will introduce server-side validations via the *Mango* query language. This can be used to enforce requirements on the structure of the data before storing it. You may also know of [JSON schema](http://json-schema.org/), a very flexible schema specification vocabulary. In case you are not familiar with this, here's a simplified example of how we could make the schema of a hypothetical todo item document explicit using JSON schema:
 
 ```json
 {
@@ -120,6 +122,11 @@ _Using JSON-schema to formalize format-requirements of our Todo-documents..._
   "properties": {
     "_id": {
       "pattern": "^todo-item:[a-f0-9]{32}$",
+      "type": "string"
+    },
+
+    "schema": {
+      "pattern": "^todo-item-[0-9]+$",
       "type": "string"
     },
 
@@ -139,33 +146,26 @@ _Using JSON-schema to formalize format-requirements of our Todo-documents..._
 }
 ```
 
-_...and a corresponding valid document_
+This specification formulates some expectations and requirements any valid todo item document would have to fulfill. For instance, it requires each such document to set a `title` attribute which must be a string of some maximum length. It is also possible to specify more complex formatting rules the pattern of the `_id` property exemplifies. CouchDB integrates nicely with JSON schema: the above specification could be used to validate documents via the `validate_doc_update` function. To round things off, here is what a corresponding valid document might look like:
 
 ```json
 {
   "_id": "todo-item:02cda16f19ed5fe4364f4e6ac400059b",
-  "title": "Clean the dishes",
+  "schema": "todo-item-1",
+  "title": "Clean both swimming pools",
   "isDone": false
 }
 ```
 
-In short, introducing format-requirements on schemaless databases opens up a space between purely implicit schemas and explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions.
+The example features a `schema` attribute on the document with a value of `todo-item-1`. This stores not only the document type but also the schema version of the document, most valuable information once we have to implement schema migrations. We recommend to make the version number a part of the schema id. This way the version is tightly coupled with the data format, while leaving enough room to change document versions independently of each other. For instance, we could upgrade `address-1` documents to `address-2` documents  while the related user data could still be stored in `user-1` documents.
 
+Being explicit about schemas is also the first step to *versioning* them. As a final practical recommendation we suggest to use [semantic versioning](http://semver.org/), properly interpreted to work well with data schemas, in order to keep track of how the schema evolves. We use semantic versioning to determine the version of the *database schema*, which is the collection of all *individual document schemas*. This way it is easy to understand the type and severity of schema changes:
 
-add json schema paragraph from above
+* **Breaking changes** happen every time old documents do not validate against a new schema anymore.
+* **Features** are all additions and enhancements that do not affect the validity of existing documents.
+* **Fixes** are small improvements like correcting typos in schema descriptions.
 
-- each doc should note schema and version
-- schema and versioning
-  - each schema should have own version
-  - version belongs to schema id
-- semver for data schemas
-  - collection of all used schemas should be semantically versioned as database schema version
-  - evaluate breaking/feature/patch from schema perspective
-  - breaking schema is when old docs do not validate against new schema
-  - feature is additional stuff without breaking old documents
-  - fixes are typos in descriptions etc
-- validation options
-  - JSON schema can be validated server side by using `validate_doc_update` function
+To sum up this discussion, introducing format-requirements on schemaless databases opens up a space between purely implicit schemas and rigidly explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions. This way, we can better find the sweet spot between data consistency and flexibility that we see fit for our projects. Storing the schema version of each document in the document paves the way for implementing schema migrations, which we will now turn our attention to.
 
 
 ## Fail fast, fail often
@@ -174,7 +174,7 @@ TBD
 
 ### Setting the stage: A toy problem
 
-While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of software applications, the todo-app. A simple todo-app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write an article about different strategies for how to accomodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
+While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of software applications, the todo-app. A simple todo-app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write an article about different strategies for how to accommodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
 
 1. Users should be able to edit their todos even when their internet connection is unstable or down and the application should synchronize all changes once it re-connects. In other words: the app must be offline-capable (what exactly this means will become clearer as we go along).
 2. The application development should be agile, meaning that we want to support frequent changes to all aspects of the system, including the data schema.
@@ -353,7 +353,7 @@ TBD: Implementation Details:
   - we listen to the (-> Global Changes Feed)
   - the document is migrated and the old version is deleted.
 
-But let's think further: what if the new document gets synced to the old app? 
+But let's think further: what if the new document gets synced to the old app?
 
 
 #### Server-side adapters
@@ -482,7 +482,7 @@ But there's more. Since clients can be offline or not get updated, older version
 
 adapters.
 
-We're not done yet. So far, we have just looked at a single document type, but our schema can accomodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $ \mathcal{O}(t n^2) $ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
+We're not done yet. So far, we have just looked at a single document type, but our schema can accommodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $ \mathcal{O}(t n^2) $ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
 
 TBD
 
