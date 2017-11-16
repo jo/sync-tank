@@ -161,6 +161,9 @@ code, pre {
   color: green;
   background-color: #F1F6F3;
 }
+code.highlighter-rouge {
+  color: #e20074;
+}
 
 blockquote {
   font-style: italic;
