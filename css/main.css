@@ -59,11 +59,16 @@ li {
 }
 
 #markdown-toc {
-  margin: 0;
+  margin: 0 0 0 1.5em;
   padding: 0;
+  line-height: 1.28;
 }
-#markdown-toc, #markdown-toc ol {
+#markdown-toc,
+#markdown-toc ol {
   list-style-type: none;
+}
+#markdown-toc ol {
+  padding-left: 2.1em;
 }
 #markdown-toc a {
   text-decoration: none;
@@ -75,8 +80,10 @@ li {
   margin: 0;
 }
 
-#markdown-toc li {
-  padding: 0 0 0.2ex 0;
+#markdown-toc li,
+#markdown-toc ol {
+  padding-top: 0.5ex;
+  padding-bottom: 0.5ex;
 }
 #markdown-toc li,
 h2,
@@ -205,17 +212,27 @@ th {
     padding: 1ex 3vw;
   }
   img {
-    max-width: 94vw;
+    max-width: 90vw;
   }
   td, th {
     padding: 0.3ex 0.1em;
   }
-  #markdown-toc li:before,
-  h2:before,
-  h3:before {
-    position: relative;
-    padding-right: 0.5em;
-    text-align: left;
+  #markdown-toc {
+    margin: 0;
+  }
+  #markdown-toc li,
+  h2,
+  h3 {
+    margin-left: 1.7em;
+  }
+  #markdown-toc li,
+  #markdown-toc ol {
+    padding-top: 0.2ex;
+    padding-bottom: 0.2ex;
+  }
+  h2.no_toc,
+  h3.no_toc {
+    margin-left: 0;
   }
 }
 
