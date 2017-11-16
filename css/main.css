@@ -161,11 +161,11 @@ code, pre {
 }
 .language-json .highlight {
   color: #e20074;
-  background-color: #F6F1F5;
+  background-color: #F6F4F6;
 }
 .language-cucumber .highlight {
   color: #025c55;
-  background-color: #eaf8f6;
+  background-color: #f3f8f5;
 }
 .language-cucumber .err {
   background-color: transparent;
@@ -183,15 +183,13 @@ blockquote {
 }
 
 figure {
-  padding: 4ex 0 0 0;
+  padding: 3ex 0 0 0;
   margin: 6ex 0;
   max-width: 42em;
   text-align: center;
-  background-color: #eee;
 }
 figcaption {
   margin: 2ex 0 0 0;
-  padding: 4ex 0;
   font-size: 0.8em;
   line-height: 1.38;
   text-align: center;
@@ -200,6 +198,12 @@ figcaption {
 }
 img {
   max-width: 100%;
+}
+figure.diagram {
+  background-color: #f3f5f4;
+}
+figure.diagram figcaption {
+  padding: 3ex 0;
 }
 figure.diagram img {
   margin: 0 auto;
