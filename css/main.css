@@ -58,6 +58,11 @@ li {
   max-width: 38em;
 }
 
+#markdown-toc {
+  margin: 0;
+  padding: 0;
+  font-size: 1.1em;
+}
 #markdown-toc, #markdown-toc ol {
   list-style-type: none;
 }
@@ -66,10 +71,61 @@ li {
 }
 #markdown-toc li {
   margin: 0;
-  text-decoration: none;
 }
 #markdown-toc li ol {
   margin: 0;
+}
+
+#markdown-toc li {
+  padding: 0 0 0.2ex 0;
+}
+#markdown-toc li:before,
+h2:before,
+h3:before {
+  color: #e20074;
+  padding-right: 0.5em;
+}
+h2.no_toc {
+  counter-increment: none;
+  content: none;
+}
+h2.no_toc:before {
+  content: none;
+}
+#markdown-toc {
+  counter-reset: toc-h2;
+}
+#markdown-toc > li {
+  counter-increment: toc-h2;
+}
+#markdown-toc > li:before {
+  content: counters(toc-h2, ".") " ";
+}
+#markdown-toc ol {
+  counter-reset: toc-h3;
+}
+#markdown-toc ol li {
+  counter-increment: toc-h3;
+}
+#markdown-toc ol li:before {
+  content: counters(toc-h2, ".") "." counters(toc-h3, ".") " ";
+}
+
+body {
+  counter-reset: chapter-h2;
+}
+h2 {
+  counter-reset: chapter-h3;
+  counter-increment: chapter-h2;
+}
+h3 {
+  counter-increment: chapter-h3;
+}
+h2:before {
+  content: counters(chapter-h2, ".") " ";
+}
+h3:before {
+  content: counters(chapter-h2, ".") "." counters(chapter-h3, ".") " ";
 }
 
 code, pre {
