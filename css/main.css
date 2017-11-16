@@ -61,7 +61,6 @@ li {
 #markdown-toc {
   margin: 0;
   padding: 0;
-  font-size: 1.1em;
 }
 #markdown-toc, #markdown-toc ol {
   list-style-type: none;
@@ -79,11 +78,20 @@ li {
 #markdown-toc li {
   padding: 0 0 0.2ex 0;
 }
+#markdown-toc li,
+h2,
+h3 {
+  position: relative;
+}
 #markdown-toc li:before,
 h2:before,
 h3:before {
   color: #e20074;
   padding-right: 0.5em;
+  position: absolute;
+  left: -2.7em;
+  width: 2em;
+  text-align: right;
 }
 h2.no_toc {
   counter-increment: none;
