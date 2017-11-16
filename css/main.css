@@ -1,13 +1,13 @@
 body {
-  font-family: Georgia, Cambria, "Times New Roman", Times, serif;
-  letter-spacing: .01rem;
-  font-weight: 400;
-  font-style: normal;
-  font-size: 18pt;
-  line-height: 1.58;
-  letter-spacing: -.003em;
   margin: 3ex 0 0 0;
   padding: 6.18vh 10vw;
+  font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+  letter-spacing: .01rem;
+  font-size: 16pt;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.58;
+  letter-spacing: -.003em;
 }
 
 body, a {
@@ -25,7 +25,7 @@ main {
   margin-bottom: 12ex;
 }
 footer {
-  font-size: 15pt;
+  font-size: 0.8em;
 }
 
 h1, h2, h3, h4 {
@@ -74,7 +74,7 @@ li {
 
 code, pre {
   font-family: "Courier New", Courier, monospace;
-  font-size: 14pt;
+  font-size: 0.8em;
 }
 .highlight {
   margin: 1ex -10vw;
@@ -108,7 +108,7 @@ figure {
 }
 figcaption {
   margin: 2ex 0 0 0;
-  font-size: 15pt;
+  font-size: 0.8em;
   line-height: 1.38;
   text-align: center;
   max-width: 52.5em;
@@ -118,7 +118,7 @@ img {
 }
 
 table {
-  font-size: 14pt;
+  font-size: 0.7em;
   border: 1px solid black;
   border-collapse: collapse;
 }
@@ -135,7 +135,7 @@ th {
 @media (max-width: 1024px) {
   body {
     padding: 2vh 3vw;
-    font-size: 16pt;
+    font-size: 14pt;
   }
   .highlight {
     margin: 1ex -3vw;
@@ -154,9 +154,6 @@ th {
   body {
     line-height: 1;
     font-size: 12pt;
-  }
-  code, pre {
-    font-size: 10pt;
   }
   .highlight {
     line-height: 1;
