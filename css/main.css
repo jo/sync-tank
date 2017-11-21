@@ -249,8 +249,11 @@ th {
 
 @media (max-width: 1024px) {
   body {
-    padding: 2vh 5vw;
+    padding: 0 5vw;
     font-size: 14pt;
+  }
+  h1 {
+    margin-top: 0;
   }
   .highlight {
     margin: 1ex -5vw;
