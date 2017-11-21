@@ -1,4 +1,4 @@
-# [Sync Tank](/): Distributed Migration Strategies
+# [Sync<br/>Tank](/) Distributed Migration Strategies
 ## How to handle schema changes in CouchDB
 {:.no_toc}
 

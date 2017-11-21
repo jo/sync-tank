@@ -19,7 +19,22 @@ body, a {
 }
 a:hover {
   color: #e20074;
-  transition: color 0.25s linear 0s;
+}
+
+h1 a {
+  color: white;
+  background-color: black;
+  text-decoration: none;
+  display: inline-block;
+  margin-right: 0.2em;
+  padding: 0.2ex 0.2em;
+}
+
+h1 {
+  margin-left: 3em;
+}
+h1 a {
+  margin-left: -3.2em;
 }
 
 li, p {
@@ -234,8 +249,11 @@ th {
 
 @media (max-width: 1024px) {
   body {
-    padding: 2vh 5vw;
+    padding: 0 5vw;
     font-size: 14pt;
+  }
+  h1 {
+    margin-top: 0;
   }
   .highlight {
     margin: 1ex -5vw;
