@@ -30,6 +30,13 @@ h1 a {
   margin-right: 0.2em;
 }
 
+h1 {
+  margin-left: 2.8em;
+}
+h1 a {
+  margin-left: -2.8em;
+}
+
 li, p {
   max-width: 42em;
 }
