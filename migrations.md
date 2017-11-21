@@ -194,7 +194,7 @@ At this point we have gotten a bit ahead of ourselves and are already discussing
 
 ### A Server-side Todo-web-app
 
-In the simplest of todo-app scenarios, we want to enable a number of users to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a client-side application to provide a nice interface, a server to deliver that application, and a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This is a common practice in the CouchDB world. It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases.Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find out that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect (unlike when you run out of space with your relational database).
+In the simplest of todo-app scenarios, we want to enable a number of users to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a client-side application to provide a nice interface, a server to deliver that application, a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This is a common practice in the CouchDB world. It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases.Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find out that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect (unlike when you run out of space with your relational database).
 
 For now, this piecemeal approach of worrying about one user and one database at a time simplifies our problem. To complete the first step and bring version one of our todo-app to the market, all there is to do as far as the schema is concerned is to decide how a single todo item is supposed to look. And since we wanted to start simple, and since the *sine qua non* of a todo item is basically just a title and a flag, here's an example of the first, launch-ready version of a valid todo item document to be stored in a user's CouchDB that also adheres to the schema we specified in the last part:
 
@@ -209,7 +209,7 @@ For now, this piecemeal approach of worrying about one user and one database at 
 
 ### The world is changing: new requirements
 
-The first weeks have passed, marketing has done a great job and our app is quite popular, especially with young professional single mothers in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
+The first weeks have passed, marketing has done a great job and our app is quite popular, especially with young professional single parents in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
 
 ```cucumber
 As a web app user
@@ -270,7 +270,7 @@ This is a valid strategy, but let's go the extra mile and think about an even be
 }
 ```
 
-This might be the corresponding status document:
+And this might be the corresponding status document:
 
 ```json
   "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5:status",
@@ -279,7 +279,7 @@ This might be the corresponding status document:
 }
 ```
 
-Note how the association of status and todo item is established via the `_id` attribute that is not just used to determine the document type. Splitting the document now enables us to group attributes that change together frequently. Here is not the place to get into a detailed discussion of data design, but feel free to take a look at the [couchdb-best-practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines if this discussion got you interested.
+Note how the association of status and todo item is established via the `_id` attribute that is not just used to determine the document type. Splitting the document now enables us to group attributes that commonly change together. Here is not the place to get into a detailed discussion of data design, but feel free to take a look at the [couchdb-best-practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines if this discussion got you interested.
 
 At this point, we have reacted to the latest incoming feature request. We can release a new version of the web app that allows users to set different progress states for their items. But wait! What about the items that have been created in the past? The previous approach does not seem to work anymore: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
 
@@ -300,11 +300,11 @@ We are now at a point where a new version of an application may be confronted wi
 
 Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of handling migrations provides a very straight forward example of this approach. In Rails we would define a migration that formalizes the schema change (prepare the database to store the new `status`, move existing `isDone` information over into the `status`, remove the `isDone` field from the todo item table). We would then take the system down, run the migration (the famous `rails db:migrate`, formerly `rake db:migrate`) and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
 
-This same strategy with CouchDB as well. Let us roughly sketch out the main steps to go through when performing a **transactional migration on CouchDB**. First you need to setup a cluster in case you want to revert or abort the migration at some point. Then switch to maintenance mode. Perform a replication of all data from the old to the new cluster. Now run a migration script to update data on the new cluster. If a check verifies that migration was successful, switch to the new cluster and switch off maintenance mode. Done.
+This same strategy works with CouchDB as well. Let us roughly sketch out the main steps to go through when performing a **transactional migration on CouchDB**. Here's our recipe: First you need to setup a cluster in case you want to revert or abort the migration at some point. Then switch to maintenance mode. Perform a replication of all data from the old to the new cluster. Now run a migration script to update data on the new cluster. If a check verifies that migration was successful, switch to the new cluster and switch off maintenance mode. Done.
 
-[Figure 1](#figure-1) illustrates the transactional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the green app needs green documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have added previously. Even if we have to change the structure of todo items does not mean we have to change how the settings document looks.
+[Figure 1](#figure-1) illustrates the transactional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the green app needs green documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have added previously. Even if we have to change the structure of todo items this does not mean we have to change how the settings document looks.
 
-This kind of transactional migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we ask that our application continue to work without a connection to the internet.
+This transactional migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we ask that our application continue to work without a connection to the internet.
 
 
 ### Going offline is harder than it looks
@@ -321,36 +321,29 @@ so that I can plan my life without worrying about network quality.
 
 This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can be persisted by the browser. In any case, all the relevant application data has to be stored on the client.
 
-Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB in our team! There are a number of client-side adaptations like [PouchDB](https://pouchdb.com/) for browsers or [Cloudant sync](https://www.ibm.com/analytics/us/en/technology/offline-first/) for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
+Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB on our team! There are a number of client-side adaptations like [PouchDB](https://pouchdb.com/) for browsers or [Cloudant sync](https://www.ibm.com/analytics/us/en/technology/offline-first/) for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
-We're not done yet, though. We do have an application that does not break when the client is offline and that synchronizes changes. But how can we stay agile with this kind of setup? Lets put it this way:
+We're not done, though. We do have an application that does not break when the client is offline and that synchronizes changes. But how can we stay agile with this kind of setup? Let's put it this way:
 
 > "Document databases are really cool… until you have to make a breaking change to the schema. Then it feels like “good luck with all that!” :D"
 >
 > Ben Nadel [on Twitter](https://twitter.com/BenNadel/status/918604059304779776)
 
-To illustrate the problem, let's get back to our previous example and assume we have a working todo app where we have to upgrade todos from a simple `isDone` to a more detailed `status`. Remember, the app has been live for a while, people are using it in version one and they are working with documents that are stored according to schema version one. If we now want to release version two of the app, we might not reach all users at once because some of them are currently offline thanks to our latest enhancements. So we have to deal with the fact that there are old versions of the app around. And they are working with old versions of the documents. Let's call this the *parallel versions problem.* How can we perform a proper data migration in this scenario? Let's look at some options.
+To illustrate the problem, let's get back to our previous example and assume we have a working todo app where we have to upgrade todos from a simple `isDone` to a more detailed `status`. Remember, the app has been live for a while, people are using it in version one and they are working with documents that are stored according to schema version one. If we now want to release version two of the app, we might not reach all users at once because some of them are currently offline thanks to our latest enhancements. So we have to deal with the fact that there are old versions of the app around. And they are working with old versions of the documents. Call this the *parallel versions problem.* How can we perform a proper data migration in this scenario? Let's look at some options.
 
 #### Transactional server-side migration
 
 Why can't we just reuse the strategy that has worked well before and update all existing documents on the server?
 
-This means that we would pick a single point in time where we update all documents on the server to be compatible with the new application. To see why this fails, consider the following chain of events: Haneen is using the app, version one, in her browser right now. Now you migrate the documents on the server-side database and prepare to hand out the new version of the app. Meanwhile, Haneen has just updated her todo item. The change takes a moment to synchronize to the server, it may also take some hours if she is currently offline. The updated todo item arrives at the server, but because Haneen is using version one of the app, the document that arrives will be outdated. We have inconsistent data in our database.
+This would mean that we picked a single point in time where we updated all documents on the server to be compatible with the new application. To see why this fails, consider the following chain of events: Haneen is using the app, version one, in her browser right now. Now you migrate the documents on the server-side database and prepare to hand out the new version of the app. Meanwhile, Haneen has just updated her todo item. The change takes a moment to synchronize to the server, it may also take several hours if she is currently offline. The updated todo item arrives at the server, but because Haneen is using version one of the app, the document that arrives will be outdated. We have inconsistent data in our database.
 
 #### Continuous server-side migration
 
-What if we still use a transactional migration but amend it in the following way: after migrating all the documents, we could look at each incoming new document on the server and if there is an old document we could simply update it.
+What if we still use a transactional migration but amend it in the following way: after migrating all the documents we look at each incoming new document on the server and if there is an old document we simply update this one to the new format. This approach would in fact solve the previous problem. If an older app inserted an older document into the system no other part would have to worry about that because the documents would be updated before reaching anyone else.
 
-This approach would solve the previous problem. If an older app inserted an older document the rest of the system would not have to worry about that because it would only the updated version. To implement this we would need a possibility to listen to incoming documents so we could update them. CouchDB provides such an option through the `changes` endpoint that allows us to keep track of every event that happens in the database. A backend service could watch this endpoint and perform an update if any older document comes in. A closer look at the CouchDB API reveals that change documents basically consist of a change id and the id of the document that was subject to the change. From this it is clear that
+How can one implement **continuous server-side migrations on CouchDB** you ask? Here's a sketch: First there must be a way to look at incoming documents so they can be updated. CouchDB provides such an option through the `changes` endpoint that allows us to keep track of every event that happens in the database. It is not a bad idea to bundle the different `changes`-endpoints of all user databases together into a **global changes feed**. A backend service could then watch this to see if any outdated document comes in and perform transformations as needed. After the updated document has been saved, there is no need for the old version to be around, so it can safely be deleted.
 
-
-TBD: Implementation Details:
-  - the old document is replicated to the server-side db
-  - we listen to the (-> Global Changes Feed)
-  - the document is migrated and the old version is deleted.
-
-But let's think further: what if the new document gets synced to the old app?
-
+This strategy solves one important aspect of the *parallel versions problem*. In particular, it deals with the situation where an old app writes old documents into the system. But what if new documents get synced to an older application? What if someone has not yet updated their iPhone app? There is a good chance that an the old app will break when being confronted with newer documents.
 
 #### Server-side adapters
 
