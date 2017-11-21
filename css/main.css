@@ -19,7 +19,15 @@ body, a {
 }
 a:hover {
   color: #e20074;
-  transition: color 0.25s linear 0s;
+}
+
+h1 a {
+  color: white;
+  background-color: black;
+  text-decoration: none;
+  display: inline-block;
+  outline: 0.2em solid black;
+  margin-right: 0.2em;
 }
 
 li, p {
