@@ -509,15 +509,52 @@ TBD: we could enhance this strategy with per version documents to support old ve
   <figcaption>Figure 3: Per Version Databases</figcaption>
 </figure>
 
+---
+
+TBD
+
+- Background of this article: eHealth, immmr, offline-camp
+  - Johannes worked on eHA together with Jan Lenard on a first migration concept
+  - when he joined immmr he faced fear of changing data schema
+  - sat together with Ben Kampmann and others, discussed per version dbs and finally invented the Per version database migration concept
+  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt, Martin Stadler and others
+
+<figure>
+  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
+  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
+</figure>
+
 TBD
 
 - New requirement: Legacy support
 - scenario: apps for Android and iOS with update-hurdles
 - strategy: create a database per version with bi-directional server-side migrations
+  - db name eg `userdb-30303964663133622d313137312d343566332d383564392d646534303732613661643637/v1`, etc
+  - (dbnames can contain slashes)
+  - pro: reflects API on REST interface `<couchdb url>/<db name>/<version>`
+  - all db files in one directory
+  - old api versions can be easily dropped
+- how to actually run migrations?
+  - via copy
+    1. query changes feed on source db
+    2. apply migration on each doc (-change)
+    3. write (update) doc to target db
+    - problem: duplicated docs, client has to replicate all docs again
+    - optimisation: replicate docs which are not touched (same schema)
+  - via replication
+    1. replicate source to target
+    2. listen to changes on target
+    3. run migrations on each doc and update doc
+    - benefit: docs are only replicated to client if needed
+    - problem: inconsistent state, client need to ignore old data
+- works in both directions
 - benefits: single responsibility (easier to maintain and test)
-- caveat: duplicates build up on the server + lot of data-movement on client
 - caveat: manage many dbs on the server
-- caveat: not seamless because upgrade takes time
+- migrations can be run on advance, then update clients. Then clients need to replicate new docs
+- new per db version databases can also be created on demand. Problem: not seamless, client needs to wait until migrations completed.
+- caveat: data duplication
+
+Problem of this approach: db transactions not supported. On CouchDB, transactions are per document. Which leads to the next strategy:
 
 ### Per-version-documents
 <figure class="diagram" id="figure-4">
@@ -528,28 +565,39 @@ TBD
 TBD
 
 - more elegant strategy: keep multiple document-versions in the same database
-- review and repeat context
-- description
-
-- Background of this article: eHealth, immmr, offline-camp
-  - Johannes worked on eHA together with Jan Lenard on a first migration concept
-  - when he joined immmr he faced fear of changing data schema
-  - sat together with Ben Kampmann and invented the Per version database migration concept
-  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt, Martin Stadler and others
-
-<figure>
-  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
-  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
-</figure>
+- since transactions are on doc level
+- each doc has a version in its id, eg `todo-item:02cda16f19ed5fe4364f4e6ac400059b:v1`
+- references must be without version,  
+  eg `"todoItemId": "02cda16f19ed5fe4364f4e6ac400059b"`
+- clients restrict access to version it knows (via views or Mango selector)
+- on server side, migration is implemented as follows:
+  1. listen to changes, filter by old (source) schema version
+  2. apply migration to each doc
+  3. create doc with new version or update
+- works in both directions
+- migration can be run in advance, clients can start down replicating migrated docs right away, so seamless update process, all migrated docs are already on the client
+- downsides:
+  - not easy to drop (purge) old versions
+  - data duplication
+- no need to change urls for client
+- need to scope views on each client
 
 ## Summary and Evaluation
 
-- The internet is broken
+> The internet is broken - Andi Pieper
 
 TBD
 
+- very complicated and extensive setup
+- flexible
+- continuous migrations allow for no downtime deploy
+- also interesting to apply per version document approach to other dbs (SQL) to minimize downtime and component upgrade
 - discuss matrix and why we favor last solution
 - outlook
+- we will create a proof of concept for migrator
+  - already outlined this
+  - shit and I already forgot it :/
+
 
 |                      | Trans&shy;actional Migra&shy;tion | Live Migra&shy;tion | Per Ver&shy;sion Data&shy;bases | Per Ver&shy;sion Docu&shy;ments |
 | -------------------- | :-------------------------------: | :-----------------: | :-----------------------------: | :-----------------------------: |
@@ -565,8 +613,8 @@ TBD
 
 
 - Thanks to all the people who helped here
+- Thanks immmr.com
 - Follow us on Github, Twitter
 - Link to repo
 - Ask for feedback, open PR/issue
-
 
