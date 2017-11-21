@@ -273,6 +273,7 @@ This is a valid strategy, but let's go the extra mile and think about an even be
 And this might be the corresponding status document:
 
 ```json
+{
   "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5:status",
   "schema": "todo-item-status-1",
   "status": "active"
