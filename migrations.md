@@ -509,8 +509,6 @@ TBD: we could enhance this strategy with per version documents to support old ve
   <figcaption>Figure 3: Per Version Databases</figcaption>
 </figure>
 
----
-
 TBD
 
 - Background of this article: eHealth, immmr, offline-camp
