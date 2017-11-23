@@ -185,7 +185,7 @@ While this article is not supposed to be a tutorial, it will be instructive to h
 
 These requirements will eventually lead us to think about distributed migrations. Of course, this is all way ahead. For now we just want you to know that a tiny todo app can cause a whole lot of trouble further down the road. But as we said this section is about starting simple, so let's start with a simple setup for a simple todo app and take on new migration challenges as we go along.
 
-In the simplest of todo app scenarios, we want to enable a number of users to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a client-side application to provide a nice interface, a server to deliver that application, a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This is a common practice in the CouchDB world. It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases.Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find out that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect (unlike when you run out of space with your relational database).
+In the simplest of todo app scenarios, we want to enable a number of users to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a client-side application to provide a nice interface, a server to deliver that application, a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This is a common practice in the CouchDB world. It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases. Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find out that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect (unlike when you run out of space with your relational database).
 
 For now, this piecemeal approach of worrying about one user and one database at a time simplifies our problem. To complete the first step and bring version one of our todo app to the market, all there is to do as far as the schema is concerned is to decide how a single todo item is supposed to look. And since we wanted to start simple, and since the *sine qua non* of a todo item is basically just a title and a flag, here's an example of the first, launch-ready version of a valid todo item document to be stored in a user's CouchDB that also adheres to the schema we specified in the last part:
 
@@ -250,7 +250,7 @@ We already have the `isDone` property in place that keeps track of an item's pro
 }
 ```
 
-This is a valid strategy, but let's go the extra mile and think about an even better solution. Up to this point, a todo item has been a rather coherent set of attributes. Yes, a title might have changed, people were able to mark todos as important and at some point in time many of the items would have been marked as done. In all those cases the document would have had to be updated. However, these changes can be expected to be relatively infrequent. In contrast, we're now introducing the concept of a multi-valued status that may change many times across the lifetime of a todo item. It would be great if we didn't have to update the whole document every time someone changes the status. This is why we propose to split the document in two, have a todo item document and save the status separately in a new document type. With these changes, the remaining core todo item might look like this:
+This is a valid strategy, but we can do better. Up to this point, a todo item has been a rather coherent set of attributes. Yes, a title might have changed, people were able to mark todos as important and at some point in time many of the items would have been marked as done. In all those cases the document would have had to be updated. However, these changes can be expected to be relatively infrequent. In contrast, we're now introducing the concept of a multi-valued status that may change many times across the lifetime of a todo item. It would be great if we didn't have to update the whole document every time someone changes the status. This is why we propose to split the document in two, have a todo item document and save the status separately in a new document type. With these changes, the remaining core todo item might look like this:
 
 ```json
 {
@@ -273,12 +273,12 @@ And this might be the corresponding status document:
 
 Note how the association of status and todo item is established via the `_id` attribute that is not just used to determine the document type. Splitting the document now enables us to group attributes that commonly change together. Here is not the place to get into a detailed discussion of data design, but feel free to take a look at the [couchdb-best-practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines if this discussion got you interested.
 
-At this point, we have reacted to the latest incoming feature request. We can release a new version of the web app that allows users to set different progress states for their items. But wait! What about the items that have been created in the past? The previous approach does not seem to work anymore: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
+At this point we have some idea for how to change the data schema in order to react to the latest feature request. We would like to release a new version of the web app that allows users to set different progress states for their items. But wait! What about the items that have been created in the past? The previous approach does not seem to work anymore: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
 
 
 ### Traditional server-side migration
 
-We are now at a point where a new version of an application may be confronted with older documents in the system that it does not know how to handle. One way of approaching this issue would be to make the app more complex to enable it to deal with older schemas. We will discuss this approach in more detail in the section on live migrations, but for the time being there is a much more common practice that is used in this scenario, one which changes not the app but the data. We will call this approach the *traditional server-side migration*.
+We are now at a point where a new version of an application may be confronted with older documents in the system that it does not know how to handle. But this prospect does not scare us because there is a common practice that is used in this scenario, and one that you probably know well already. We will call this the *traditional server-side migration*.
 
 <figure class="diagram" id="figure-1">
   <img src="images/transactional-migration.svg" alt="Schematic view of traditional server-side migration" />
@@ -301,35 +301,45 @@ This migration procedure is very common for the type of monolithic centralized s
 
 ## Fail fast, fail often
 
-Failure tends to lead to success. When you fail with one approach, you can quickly develop new insights into a problem, and you can free your mind and pivot and try out alternatives. This process will often produce better results than sticking with one initial strategy could ever achieve. So let's fail in this part. In fact, let's fail a couple of times.
+Failure tends to lead to success. When you fail with one approach, you can quickly develop new insights into a problem, and you can free your mind and pivot and try out alternatives. This process will often produce better results than sticking with one initial strategy could ever achieve. So we are going to fail in this part. In fact, we are going to fail a couple of times.
 
-...
+For starters, we will bring back much of the complexity we have ignored so far. In this new context, we will be forced to look at more powerful migration strategies because our previous approaches are not viable anymore. In the spirit of this section, all the strategies discussed here will have serious drawbacks that should nevertheless prepare us well for a more systematic discussion that is coming up in the next section. Our primary goal for now is to develop a better understanding about the different types of problems that can arise in more complex scenarios.
 
-In the spirit of this section, all of the strategies discussed here will have serious drawbacks that should nevertheless prepare us well for a more systematic discussion coming up in the next section.
+### Making the simple complex
 
-### Going offline is harder than it looks
+> "Document databases are really cool… until you have to make a breaking change to the schema. Then it feels like “good luck with all that!” :D"
+>
+> Ben Nadel [on Twitter](https://twitter.com/BenNadel/status/918604059304779776)
 
-Up to this point our todo application will simply stop working when the internet connection is down. Instead of the app, users will get a message that they are offline. Or - even worse - if the connection is unstable they will not even get notified about that but they might simply see a white screen while some request is underway and they will wait and hope for a response and wait and hope for a response and wait and eventually get frustrated.
+Up to this point the development of our todo app has been agile alright, but we never had to support offline capable clients or multiple clients that could run different versions of the software. That's about to change. Let's talk about offline first.
+
+Currently, our todo application will simply stop working when the internet connection is down. Instead of the app, users will get a message that they are offline. Or - perhaps even worse - if the connection is unstable they will not even get any notification but they might simply see a white screen while some request is underway and they will wait and hope for a response and wait and hope for a response and wait and eventually get frustrated.
 
 To fix this, we would like users to be able to access the app and perform all the relevant CRUD operations on todo items even if the internet connection is not reliable. Let's make this a feature request:
 
 ```cucumber
 As an application user
 I want to edit todo items even when my internet connection is unreliable
-so that I can plan my life without worrying about network quality.
+so that I can plan my life without having to worry about network quality.
 ```
 
-This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can be persisted by the browser. In any case, all the relevant application data has to be stored on the client.
+This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can run on a desktop environment. In any case, all the relevant application data will have to be stored on the client so that it can operate in the absence of a network connection.
 
 Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB on our team! There are a number of client-side adaptations like [PouchDB](https://pouchdb.com/) for browsers or [Cloudant sync](https://www.ibm.com/analytics/us/en/technology/offline-first/) for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
-We're not done, though. We do have an application that does not break when the client is offline and that synchronizes changes. But how can we stay agile with this kind of setup? Let's put it this way:
+CouchDB is great when it comes to building offline capable apps and managing data synchronization. But clients that are offline may miss a software update. When this happens, there may be outdated clients that are still reading and writing data that adheres to older schemas. This problem becomes even more obvious once we build native apps that may have to be updated manually. So why not introduce them appropriately:
 
-> "Document databases are really cool… until you have to make a breaking change to the schema. Then it feels like “good luck with all that!” :D"
->
-> Ben Nadel [on Twitter](https://twitter.com/BenNadel/status/918604059304779776)
+```cucumber
+As a customer
+I want to use the todo app on my iPhone and through a web interface
+so that my workflow can fit my life and not the other way round.
+```
 
-To illustrate the problem, let's get back to our previous example and assume we have a working todo app where we have to upgrade todos from a simple `isDone` to a more detailed `status`. Remember, the app has been live for a while, people are using it in version one and they are working with documents that are stored according to schema version one. If we now want to release version two of the app, we might not reach all users at once because some of them are currently offline thanks to our latest enhancements. So we have to deal with the fact that there are old versions of the app around. And they are working with old versions of the documents. Call this the *parallel versions problem.* How can we perform a proper data migration in this scenario? Let's look at some options.
+If we provide users not only with a web app but also with native clients then updating the data schema to a newer version comes with certain additional challenges. Imagine someone is using our todo app both through the web interface and on their phone. When we release a new version of the software that includes a breaking change in the data schema the web app gets updated immediately once the page is reloaded. But the app on the phone may have to be updated manually, and this could happen now, or soon, or someday, or - never.
+
+In this more complex scenario we are now confronted with three formidable challenges: we want to support multiple clients, we want them not to break when the network connection is unstable, and we want to develop our software incrementally and stay agile, pivoting and releasing new versions in response to user demand. How could this ever work, you wonder? Let's wonder together.
+
+
 
 #### Transactional server-side migration
 
