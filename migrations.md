@@ -303,7 +303,7 @@ This migration procedure is very common for the type of monolithic centralized s
 
 Failure tends to lead to success. When you fail with one approach, you can quickly develop new insights into a problem, and you can free your mind and pivot and try out alternatives. This process will often produce better results than sticking with one initial strategy could ever achieve. So we are going to fail in this part. In fact, we are going to fail a couple of times.
 
-For starters, we will bring back much of the complexity we have ignored so far. In this new context, we will be forced to look at more powerful migration strategies because our previous approaches are not viable anymore. In the spirit of this section, all the strategies discussed here will have serious drawbacks that should nevertheless prepare us well for a more systematic discussion that is coming up in the next section. Our primary goal for now is to develop a better understanding about the different types of problems that can arise in more complex scenarios.
+As a first step we will bring back much of the complexity we have ignored so far. In this new context, we will be forced to look at more powerful migration strategies because our previous approaches are not viable anymore. In the spirit of this section, all the strategies discussed here will have serious drawbacks that should nevertheless prepare us well for a more systematic discussion that is coming up in the next section. Our primary goal for now is to develop a better understanding about the different types of problems that can arise in more complex scenarios.
 
 ### Making the simple complex
 
@@ -325,27 +325,48 @@ so that I can plan my life without having to worry about network quality.
 
 This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can run on a desktop environment. In any case, all the relevant application data will have to be stored on the client so that it can operate in the absence of a network connection.
 
-Now that a user can create or edit todo items even when the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB on our team! There are a number of client-side adaptations like [PouchDB](https://pouchdb.com/) for browsers or [Cloudant sync](https://www.ibm.com/analytics/us/en/technology/offline-first/) for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
+When a user can create or edit todo items even if the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB on our team! There are a number of client-side adaptations like [PouchDB](https://pouchdb.com/) for browsers or [Cloudant sync](https://www.ibm.com/analytics/us/en/technology/offline-first/) for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
 CouchDB is great when it comes to building offline capable apps and managing data synchronization. But clients that are offline may miss a software update. When this happens, there may be outdated clients that are still reading and writing data that adheres to older schemas. This problem becomes even more obvious once we build native apps that may have to be updated manually. So why not introduce them appropriately:
 
 ```cucumber
 As a customer
 I want to use the todo app on my iPhone and through a web interface
-so that my workflow can fit my life and not the other way round.
+so that I can fit my workflow to my life and not the other way round.
 ```
 
-If we provide users not only with a web app but also with native clients then updating the data schema to a newer version comes with certain additional challenges. Imagine someone is using our todo app both through the web interface and on their phone. When we release a new version of the software that includes a breaking change in the data schema the web app gets updated immediately once the page is reloaded. But the app on the phone may have to be updated manually, and this could happen now, or soon, or someday, or - never.
+If we provide users not only with a web app but also with native clients then updating the data schema to a newer version comes with certain additional challenges. Imagine someone is using our todo app both through the web interface and on their phone. When we release a new version of the software that includes a breaking change to the data schema the web app gets updated immediately once the page is reloaded. But the app on the phone may have to be updated manually, and this could happen now, or soon, or someday, or - never. In this situation we will have multiple clients with multiple versions in the system.
 
-In this more complex scenario we are now confronted with three formidable challenges: we want to support multiple clients, we want them not to break when the network connection is unstable, and we want to develop our software incrementally and stay agile, pivoting and releasing new versions in response to user demand. How could this ever work, you wonder? Let's wonder together.
+In this more complex scenario we are now confronted with three formidable challenges: we want to support multiple clients running multiple app versions, we want them not to break when the network connection is unstable, and we want to develop our software incrementally and stay agile, pivoting and releasing new versions in response to user demand. How could this ever work, you wonder? Let's wonder together.
+
+### Traditional migrations fail
+
+Why can't we just reuse the traditional migration strategy that has worked well before and update all existing documents on the server? This would mean that we picked a single point in time where we updated all documents on the server to be compatible with the new data schema. The changes would then be replicated to the clients' local databases.
+
+This approach fails for a couple of reasons. Let's first consider the case where a web app may be offline thanks to our latest enhancements. Here's a chain of events that breaks the system: Haneen is using the web app, version one, in her browser right now. Because she is currently on the train she is editing todos in offline mode. She has just created a todo to pluck some flowers for her friend's birthday. Meanwhile we release a new version of the app and migrate all existing data on the server-side database. Back at home, Haneen's app synchronizes the recent changes. The updated documents get replicated from the server-side CouchDB to her in-browser database. This may take a moment but we can assume we find a way to verify the update is complete before allowing the app to resume. Eventually the web app, which has all the latest features now, is ready to work. But what about the flowers-todo? It was created offline according to the previous version of the data schema. It still has the simple `isDone` flag instead of the new fancy `status`. The new version of the app does not know how to deal with this old document. It might even break. Utter disaster.
+
+This problem on its own can be dealt with, and the solution has two parts. First we need to make sure that the new app does not break when it encounters older documents. This should not be too hard. It basically has to ignore the `isDone`-flag in this case. And the fact that a `status`-document is missing should cause no troubles for the application anyways because this could also happen under normal circumstances where documents simply need some time to be synchronized. The second part of the solution is a backend-service that continuously updates older documents that might be coming in. In our example, the old flower-todo will be replicated to the server at some point. The service, which would look at incoming documents, would notice that the version is outdated and perform the post hoc migration. Then the new flower-todo is synced back to the clients. Problem solved.
+
+As this discussion shows, there are times when you can get away with a traditional server-side migration by amending it with a continuous update of potentially outdated documents. If you just want to provide an offline capable web app, this strategy may be all you need. Of course, our scenario is more complex because we want to provide native clients as well. This comes with additional difficulties.
+
+### Traditional migrations fail again
+
+If there are clients with multiple versions operating on the same data, the traditional migration strategy is lost beyond reclaim. To see why it fails so badly, consider another exemplary scenario: Basti is using the app, version one, as the web app and he also has it installed on his iPhone. Today is migration day so you update the documents on the server-side database and prepare to hand out the new version of the app. When Basti reloads the web site, he will get the new version of the app right away with. But what about the iPhone app? Of course, all the updated data will be replicated to the iPhone's local database as well, but if Basti did not make sure to update the app immediately, it will start to show some weird behavior or will simply break because we effectively deleted the old documents it was depending upon. Utter disaster.
+
+Is it possible that this problem arises because we perform the data migration centralized on the server? What if we did it directly on the client instead? The setup could look like this: once a client updates to a new version, it pauses for a moment and runs the traditional migration on its local database. When this is finished, it resumes operation and now works with the new data. This will fail as well, and for a very similar reason. Remember that we are dealing with a distributed system that communicates through CouchDB's replication mechanism. In the current scenario, this would entail that the document updates that have just happened on a single client will be distributed throughout the system and will eventually update and overwrite documents on older clients as well. Haneen's web app just broke the iPhone app.
+
+The traditional migration approach, server-side or client-side, with or without a continous update amendment, cannot be successful in our complex scenario. There is no easy way to say this: we have to get creative and look for alternative solutions.
+
+
+### Searching for alternatives
+
+TBD
 
 
 
-#### Transactional server-side migration
 
-Why can't we just reuse the strategy that has worked well before and update all existing documents on the server?
 
-This would mean that we picked a single point in time where we updated all documents on the server to be compatible with the new application. To see why this fails, consider the following chain of events: Haneen is using the app, version one, in her browser right now. Now you migrate the documents on the server-side database and prepare to hand out the new version of the app. Meanwhile, Haneen has just updated her todo item. The change takes a moment to synchronize to the server, it may also take several hours if she is currently offline. The updated todo item arrives at the server, but because Haneen is using version one of the app, the document that arrives will be outdated. We have inconsistent data in our database.
+
 
 #### Continuous server-side migration
 
