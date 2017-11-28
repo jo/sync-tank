@@ -382,7 +382,52 @@ It is time to approach this issue in an orderly fashion. We will start out the d
 
 ### A taxonomy for reasoning about migrations
 
-TBD
+After our previous attempts have encountered serious problems, we would like to approach migrations more systematically. In particular, we want to classify strategies according to *where data is stored*, *how the migration is performed* and *through which mechanisms this happens.*
+
+#### Where is data being stored?
+
+Up to this point, we were only talking about setups where one user has a single database for all their data. In our running example, this database has one server-side replica and multiple replicas on the client devices, but it is still a *single* database. In the migration strategies we have seen so far, there existed only a *single* version of a document at a time as well. When it came to dealing with offline-capabable clients and maintaining multiple app version the traditional approaches failed exactly because there were document versions missing that some applications still depended upon.
+
+Maintaining multiple document versions in parallel can be achieved in two ways. First, multiple document versions could be stored in a *single* database simultaneously. The fact that the `_id`-attribute of a document must be unique means that we would have to adapt this property accordingly, for instance by keeping track of the version in the `_id` itself. As an example, our todo item documents could have `_ids` like `todo-item:ce2f71ee7db9d6decfe459ca9d000df5:v:1` and `todo-item:ce2f71ee7db9d6decfe459ca9d000df5:v:2` that carry information about the respective document schema version. If we manange `_id`s carefully, it is possible to work with multiple document versions in a single database. Alternatively, each version of the data schema could have its own database. Instead of the standard *couch-per-user* approach this would imply that we set up multiple *couches-per-user*, one for each schema version.
+
+These new options, together with the traditional approach, form the three values of the *where-to-store-the-data* dimension, as we have basically three options available, which we will try to furnish with telling labels:
+
+1. **Single-doc**: Use a *single* database and keep only a *single* version of documents.
+2. **Multi-doc**: Provide a *single* database but have *multiple* document versions in it.
+3. **Multi-db**: Set up *multiple* databases, each one storing documents that belong to a *single* schema version.
+
+These three alternatives constitute the first dimension of the taxonomy we are building up. Next we turn our attention to possible migration mechanics.
+
+#### How is data being modified?
+
+From our previous discussion we can identify two different *mechanisms* to perform migrations. The first one is the traditional approach where data is modified no matter if it is required or not. We have seen that this could happen in a *on-shot* fashion at a single point in time where all existing documents are updated at once or *continuously* while new documents are coming in. The essential tools to implement this type of migration are *tasks* that can be executed by the responsible services or workers and *hooks* that make it possible to intercept the data flow and perform document updates as soon as possible.
+
+We have also already encountered the second migration mechanism in the form of adapters that were briefly discussed in the last section. In contrast to migration tasks, adapters perform migrations *on-the-fly* as it were. It is characteristic for this approach that document updates happen only when documents are actually needed by an application. Data that is never touch will never be migrated. To get a handle on this *how-to*-dimension we propose to use the following terminology:
+
+1. **Eager**: Migration strategies that perform document updates directly for all available data.
+2. **Lazy**: Strategies that only update documents when documents are actually needed.
+
+A major difference between the two approaches is that lazy migrations have to intercept the read (and possible the write) process of the applications while eager migrations can happend independently of any application behavior.
+
+
+#### Where is data being modified?
+
+As a third and last dimension of a useful taxonomy we suggest to take into account whether migrations are performed on the server-side database or on the client. Traditional migrations are only run on the server, but we have already started to consider alternatives in the previous discussions.
+
+Running migrations on client-side databases comes with additional difficulties. For instance, it will be harder to fix bugs and maintain code that is distributed across multiple user devices. Performing migrations on a single server that you have direct access to makes migrations a lot easier to test, control, and possibly even revert. Additionaly, multiple client applications may be written in a number of different programming languages so that the respective migration code, which can already be challenging to get correct in the first place, would have to be written multiple times in multiple languages. Lastly, the different clients that implement the Couch replication protocol (like CouchDB, PouchDB, Cloudant, etc.) do not generate the same revision numbers. We have not talked about revisions and the `_rev` attribute here, but you should know that without consistent `_rev`s creating the same document on multiple clients in parallel could lead to a massive amount of conflicts. This is not to say that running migrations on the client is a bad choice, we just want to caution that it may come with additional baggage.
+
+To round things off, let us suggest a terminology to work with the distinction we have drawn here:
+
+1. **Server-side**: Migrations are performed on a central server-side database and changes or updates are only later replicated to client databases.
+2. **Client-side**: Migrations are run directly on client-databases, potentially in parallel, and changes will then be replicated through the system from each client.
+
+We have now established three dimensions of a taxonomy to help us reason about migration strategies. We could even view them as a kind of *orthogonal basis* of the space of possible migrations because we can move along each axis without changing the other. This also means that our migration options multiply: we have identified three storage alternatives, two migration mechanisms, and two places where migrations could be performed for a total of *twelve distinct migration strategies*.
+
+Even though we cannot discuss them all here we have built up a vocabulary for identifying the different approaches by combining the values on different dimensions. We can, for instance, distinguish the traditional migrations, which are *eager, server-side, single-doc migrations*, from the *lazy client-side single-doc migrations* we have labeled as *adapter migrations* in the previous part.
+
+In what follows, we would like to take a closer look at two exemplary strategies that have not been discussed so far and that lie in very different places of our spectrum. One of those happens to be the one we are actually implementing in our own work.
+
+
 
 ### Adapter migrations
 
