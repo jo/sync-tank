@@ -369,12 +369,33 @@ To avoid those conflicts old documents that are read through adapters should onl
 
 It seems like the basic problem with all approaches so far is that we try to maintain *multiple* client versions that are all supposed to work with a *single* version of the data schema. And how could this work in the first place?
 
-So is there a way to maintain multiple versions of the data schema in parallel? CouchDB will certainly not object if the same information is stored in different formats - as long as the `_id` attributes of the respective documents are unique. Maybe there is a way to run *non-destructive migrations* then. For instance, adapters could read old documents and later store the information in a new document with an appropriate `_id` without overwriting the existing documents. This way, old apps don't break immediately. But if we don't make sure old documents reflect the latest changes from user interactions, how can old apps still be up to date when they are using old documents? And can they even deal with the new documents that can arrive from newer clients? Or is there a way to ignore those? And what if managing the `_id` gets too messy? We said databases are lightweight and cheap, can't we just have a completely new database for every version of the data schema?
+So is there a way to maintain multiple versions of the data schema in parallel? CouchDB will certainly not object if the same information is stored in different formats - as long as the `_id` attributes of the respective documents are unique. Maybe there is a way to run *non-destructive migrations* then. For instance, adapters could read old documents and later store the information in a new document with an appropriate `_id` without overwriting the existing documents. This way, old apps won't break immediately. But if we don't make sure old documents reflect the latest changes from user interactions, how can old apps still be up to date when they are using old documents? And can they even deal with the new documents that can arrive from newer clients? Or is there a way to ignore those? And what if managing the `_id` gets too messy? We said databases are lightweight and cheap, can't we just have a completely new database for every version of the data schema?
 
-Wow, this investigation has gotten out of hands! It looks like we need a more structured approach to get a grip on this messy collection of problems. Rest assured that our efforts will pay off soon. We've seen some strategies fail, but we also understand better what we are up against. Plus we have collected a number of ideas and build a few tools in the process. Let's switch gears now and approach our discussion with a trace of rigorous discipline.
+Wow, this investigation has gotten out of hands! It looks like we need a more structured approach to get a grip on this messy collection of problems. But rest assured that our efforts will pay off soon. We've seen some strategies fail, but we also understand better what we are up against. Plus we have collected a number of ideas and built a few tools in the process. Let's switch gears now and approach our discussion with a tad of rigorous discipline.
 
 
-## Ohne Worte
+## Non-destructive migrations
+
+The common approach when it comes to schma migrations is to modify data that currently adheres to one format so that it matches new format requirements. This process is usually destructive: the old data is assumed to be obsolete after the migration and is eliminated during the migration process. But we are now dealing with a situation where multiple schema versions may have to exist in parallel because there can be multiple clients in a system that run different versions of some application software.
+
+It is time to approach this issue in an orderly fashion. We will start out the discussion by proposing a taxonomy for thinking about migration strategies that will take into account *where* data is stored and *how* it is being modified. After that we will take an in-depth look at two different approaches for working with parallel schemas. *Adapter migrations* were already briefly mentioned in our previous discussion, and *Per-version documents* is a strategy we are currently following in our own work. Thoughout this section we will not only describe these approaches in broad terms but we will provide some details when it comes to implementing them on top of CouchDB.
+
+### A taxonomy for reasoning about migrations
+
+TBD
+
+### Adapter migrations
+
+TBD
+
+### Per version documents
+
+TBD
+
+
+
+
+## Older stuff from before, waiting for reuse...
 
 ### tools / concepts
 
@@ -399,17 +420,17 @@ deterministic revision ids
 
 We will use the term 'live migration' to describe on-the-fly transformations of documents to adhere to a different data schema. We have encountered this idea briefly in the previous section when we talked about server-side adapters. Unfortunately, this approach was not feasible. Let's now talk about equipping clients with the necessary capabilities to deal with different schema versions.
 
-The basic idea is to enable an application to read documents with older versions through adapters. [Figure 2](#figure-2) illustrates the strategy in broad strokes: an adapter is provided to update the old (white) document type to a newer version which the new app knows how to handle.
-
 <figure class="diagram" id="figure-2">
   <img src="images/live-migration.svg" alt="Schematic view of live migration" />
   <figcaption>
-    <b>Figure 2: Live Migration.</b>
+    <b>Figure 2: Adapter Migration.</b>
     <span>
       An adapter enables the application to read documents of older formats. When it comes to persisting them the app will store the documents in their updated version.
     </span>
   </figcaption>
 </figure>
+
+The basic idea is to enable an application to read documents with older versions through adapters. [Figure 2](#figure-2) illustrates the strategy in broad strokes: an adapter is provided to update the old (white) document type to a newer version which the new app knows how to handle.
 
 To make this point more concrete, let's take another look at our current problem with the todo app. We already have todo items in the system and we want to release a new version of the app that works with new document versions. The application can read and write these new documents, but what if it encounters an older document? In this case, we could provide it with an adapter that takes in old documents and returns new ones. Here's the case in point:
 
