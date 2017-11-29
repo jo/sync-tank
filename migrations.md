@@ -430,8 +430,8 @@ Maintaining multiple document versions in parallel can be achieved in two ways. 
 
 These new options, together with the traditional approach, form the three values of the *where-to-store-the-data* dimension, as we have basically three options available, which we will try to furnish with telling labels:
 
-1. **Single-doc**: Use a *single* database and keep only a *single* version of documents.
-2. **Multi-doc**: Provide a *single* database but have *multiple* document versions in it.
+1. **Single-version**: Use a *single* database and keep only a *single* version of documents.
+2. **Multi-version**: Provide a *single* database but have *multiple* document versions in it.
 3. **Multi-db**: Set up *multiple* databases, each one storing documents that belong to a *single* schema version.
 
 These three alternatives constitute the first dimension of the taxonomy we are building up. Next we turn our attention to possible migration mechanics.
@@ -461,14 +461,48 @@ To round things off, let us suggest a terminology to work with the distinction w
 
 We have now established three dimensions of a taxonomy to help us reason about migration strategies. We could even view them as a kind of *orthogonal basis* of the space of possible migrations because we can move along each axis without changing the other. This also means that our migration options multiply: we have identified three storage alternatives, two migration mechanisms, and two places where migrations could be performed for a total of *twelve distinct migration strategies*.
 
-Even though we cannot discuss them all here we have built up a vocabulary for identifying the different approaches by combining the values on different dimensions. We can, for instance, distinguish the traditional migrations, which are *eager, server-side, single-doc migrations*, from the *lazy client-side single-doc migrations* we have labeled as *adapter migrations* in the previous part.
+Even though we cannot discuss these options in detail here we have built up a vocabulary for identifying the different approaches. We can, for instance, distinguish the traditional migrations, which are *eager server-side single-version migrations*, from the *lazy client-side single-version migrations* we have named *adapter migrations* in the previous part.
 
-In what follows, we would like to take a closer look at an exemplary strategy that happens to be the one we are actually using in our own work.
+In what follows, we would like to take a better look at one exemplary strategy that happens to be the one we are actually using in practice. As for the rest we found that our taxonomy provides a good entry point for further discussion. Some of the approaches we cannot talk about in this article are still worthy of further scrutiny but we will have to leave it to the reader to follow up with those.
 
-## Eager server-side multi-doc migrations
 
-TBD
+## An eager server-side multi-version migration strategy
 
+We have come far. We now share a common vocabulary and a systematic understanding of distributed migration strategies, we have seen when they are necessary and when you might get away without them. In this section we are going to take a good look at one particular strategy that can work well in practice. We will not shy away from addressing a range of problems and difficulties that emerge when this approach is implemented on top of CouchDB and we will propose a set of solutions for them, so be prepared for a more detailed technical discussion.
+
+The strategy we are going to present is not the only reasonable choice as should be clear from the previous discussion. Still we believe that among the options we discussed it allows for a clean and maintainable implementation given that we want to support the complex scenario we have built up in the previous sections. To recap: we demand that our system support offline-capable applications and clients on multiple platforms that require different schema versions of application data, all the while providing full backwards-compatibility for older apps or services and enabling agile development.
+
+### We are not alone
+
+The solution we discuss here does not come out of thin air. It has emerged from a longer discussion with contributers from different institutions and the offline-first community. To give credit where credit is due, we would like to begin with a very brief recap of the background of our approach.
+
+During his time with eHealth Africa Johannes began to think about the problem of distributed migrations together with [Jan Lenard](http://writing.jan.io/). When he later joined immmr, the company was still on its way to developing a market-ready version of its first product. At this time, there were a lot of concerns about the viability of schema migrations. The only real alternative to migrations - getting everything right from the start - has some problems of its own so Johannes and Ben Kampmann generated several ideas for migration strategies, from which the approach we are going to present here emerged as a final result.
+
+<figure>
+  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
+  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
+</figure>
+
+The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an excellent opportunity to discuss the strategy with members from the offline-first community and we gratefully appreciate the thoughtful comments from Gregor Martinus, Bradley Holt, Martin Stadler and others. These discussions gave us a lot more confidence that we have found a robust approach that can persist through a number of challenging edge-cases.
+
+### ...
+
+
+
+
+- broad strokes / theory
+  - server-side migrators
+  - id-management
+  - clients use views to distinguish schemas
+  - clients need to deal with missing documents that have not been replicated
+    -> if strictly depending data, put in one doc
+  - replication policy: only get current and newer docs via replication
+  - optional throw-away of old data via local filtered replication on tmp-db
+
+
+### Migrators
+
+- migrator concept
 
 
 
@@ -570,19 +604,10 @@ As a general migration strategy, this approach looks very promising indeed. It w
 
 TBD
 
-- Background of this article: eHealth, immmr, offline-camp
-  - Johannes worked on eHA together with Jan Lenard on a first migration concept
-  - when he joined immmr he faced fear of changing data schema
-  - sat together with Ben Kampmann and others, discussed per version dbs and finally invented the Per version database migration concept
-  - discussed this concept on the [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) with Gregor Martinus, Bradley Holt, Martin Stadler and others
-
-<figure>
-  <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
-  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
-</figure>
 
 TBD
 
+```
 - New requirement: Legacy support
 - scenario: apps for Android and iOS with update-hurdles
 - strategy: create a database per version with bi-directional server-side migrations
@@ -612,6 +637,7 @@ TBD
 - caveat: data duplication
 
 Problem of this approach: db transactions not supported. On CouchDB, transactions are per document. Which leads to the next strategy:
+```
 
 ### Per-version-documents
 <figure class="diagram" id="figure-4">
@@ -621,6 +647,7 @@ Problem of this approach: db transactions not supported. On CouchDB, transaction
 
 TBD
 
+```
 - more elegant strategy: keep multiple document-versions in the same database
 - since transactions are on doc level
 - each doc has a version in its id, eg `todo-item:02cda16f19ed5fe4364f4e6ac400059b:v1`
@@ -638,6 +665,7 @@ TBD
   - data duplication
 - no need to change urls for client
 - need to scope views on each client
+```
 
 ## Summary and Evaluation
 
