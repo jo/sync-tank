@@ -468,13 +468,19 @@ In what follows, we would like to take a better look at one exemplary strategy t
 
 ## Chesterfield Migration
 
-<figure>
-  <img src="images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
-</figure>
-
 We have come far. We now share a common vocabulary and a systematic understanding of distributed migration strategies, we have seen when they are necessary and when you might get away without them. In this section we are going to take a good look at one particular strategy that can work well in practice. We will not shy away from addressing a range of problems and difficulties that emerge when this approach is implemented on top of CouchDB and we will propose a set of solutions for them, so be prepared for a more detailed technical discussion.
 
 The strategy we are going to present is not the only reasonable choice as should be clear from the previous discussion. Still we believe that among the options we discussed it allows for a clean and maintainable implementation given that we want to support the complex scenario we have built up in the previous sections. To recap: we demand that our system support offline-capable applications and clients on multiple platforms that require different schema versions of application data, all the while providing full backwards-compatibility for older apps or services and enabling agile development.
+
+<figure>
+  <img src="images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
+  <figcaption>
+    <b>Chesterfield.</b>
+    <span>
+      A type of luxurious couch. And and appropriate name for a migration strategy that has you covered in all kinds of circumstances.
+    </span>
+  </figcaption>
+</figure>
 
 In order to have a memorable reference, we are going to brand our strategy as *chesterfield migration*. A chesterfield is a type of luxurious couch, and we feel this is an appropriate term as we are going to describe an approach that meets all kinds of differents requirements comfortably - and is based upon CouchDB.
 
