@@ -466,11 +466,13 @@ Even though we cannot discuss these options in detail here we have built up a vo
 In what follows, we would like to take a better look at one exemplary strategy that happens to be the one we are actually using in practice. As for the rest we found that our taxonomy provides a good entry point for further discussion. Some of the approaches we cannot talk about in this article are still worthy of further scrutiny but we will have to leave it to the reader to follow up with those.
 
 
-## An eager server-side multi-version migration strategy
+## Chesterfield migration
 
 We have come far. We now share a common vocabulary and a systematic understanding of distributed migration strategies, we have seen when they are necessary and when you might get away without them. In this section we are going to take a good look at one particular strategy that can work well in practice. We will not shy away from addressing a range of problems and difficulties that emerge when this approach is implemented on top of CouchDB and we will propose a set of solutions for them, so be prepared for a more detailed technical discussion.
 
 The strategy we are going to present is not the only reasonable choice as should be clear from the previous discussion. Still we believe that among the options we discussed it allows for a clean and maintainable implementation given that we want to support the complex scenario we have built up in the previous sections. To recap: we demand that our system support offline-capable applications and clients on multiple platforms that require different schema versions of application data, all the while providing full backwards-compatibility for older apps or services and enabling agile development.
+
+In order to have a memorable reference, we are going to brand our strategy as *chesterfield migration*. A chesterfield is a type of luxurious couch, and we feel this is an appropriate term as we are going to describe an approach that meets all kinds of differents requirements comfortably - and is based upon CouchDB.
 
 ### We are not alone
 
@@ -483,9 +485,13 @@ During his time with eHealth Africa Johannes began to think about the problem of
   <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
 </figure>
 
-The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an excellent opportunity to discuss the strategy with members from the offline-first community and we gratefully appreciate the thoughtful comments from Gregor Martinus, Bradley Holt, Martin Stadler and others. These discussions gave us a lot more confidence that we have found a robust approach that can persist through a number of challenging edge-cases.
+The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an excellent opportunity to discuss the strategy with members from the offline-first community and we gratefully appreciate the thoughtful comments from Gregor Martinus, Bradley Holt, Martin Stadler (a former immmr-colleage!) and others. These discussions gave us a lot more confidence that we have found a robust approach that can persist through a number of challenging edge-cases.
 
-### ...
+### An eager server-side multi-version migration strategy
+
+The migration strategy we present here is an *eager, server-side, multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes` endpoint for document updates and activating different *transformers* which perform the document updates, all of which is happening on the server-side database with updates being replicated to client-databases afterwards.
+
+
 
 
 
