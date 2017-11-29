@@ -470,7 +470,6 @@ In what follows, we would like to take a better look at one exemplary strategy t
 
 <figure>
   <img src="images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
-  <figcaption>The authors: Matthias and Johannes</figcaption>
 </figure>
 
 We have come far. We now share a common vocabulary and a systematic understanding of distributed migration strategies, we have seen when they are necessary and when you might get away without them. In this section we are going to take a good look at one particular strategy that can work well in practice. We will not shy away from addressing a range of problems and difficulties that emerge when this approach is implemented on top of CouchDB and we will propose a set of solutions for them, so be prepared for a more detailed technical discussion.
