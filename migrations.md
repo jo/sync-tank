@@ -466,7 +466,12 @@ Even though we cannot discuss these options in detail here we have built up a vo
 In what follows, we would like to take a better look at one exemplary strategy that happens to be the one we are actually using in practice. As for the rest we found that our taxonomy provides a good entry point for further discussion. Some of the approaches we cannot talk about in this article are still worthy of further scrutiny but we will have to leave it to the reader to follow up with those.
 
 
-## An eager server-side multi-version migration strategy
+## Chesterfield Migration
+
+<figure>
+  <img src="images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
+  <figcaption>The authors: Matthias and Johannes</figcaption>
+</figure>
 
 We have come far. We now share a common vocabulary and a systematic understanding of distributed migration strategies, we have seen when they are necessary and when you might get away without them. In this section we are going to take a good look at one particular strategy that can work well in practice. We will not shy away from addressing a range of problems and difficulties that emerge when this approach is implemented on top of CouchDB and we will propose a set of solutions for them, so be prepared for a more detailed technical discussion.
 
