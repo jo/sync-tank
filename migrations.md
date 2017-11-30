@@ -168,6 +168,27 @@ Being explicit about schemas is also the first step to *versioning* them. As a f
 * **Features** are all additions and enhancements that do not affect the validity of existing documents.
 * **Fixes** are small improvements like correcting typos in schema descriptions.
 
+```
+TBD
+
+data schema versioning through a form of package.json where each type is its own
+package, versioned individually, and the dataschema collects them together.
+
+// schema manifest
+```
+
+```json
+{
+  "name": "todo-app",
+  "version": "2.1.0",
+  "dependencies": {
+    "address": "^2.0.0",
+    "todo-item": "^1.1.0",
+    "user": "^1.3.1"
+  }
+}
+```
+
 To sum up this discussion, introducing format-requirements on schemaless databases opens up a space between purely implicit schemas and rigidly explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions. This way, we can better find the sweet spot between data consistency and flexibility that we see fit for our projects. Storing the schema version of each document in the document paves the way for implementing schema migrations, which we will now turn our attention to.
 
 
@@ -420,7 +441,7 @@ Wow, this investigation has gotten out of hands! It looks like we need a more st
 
 The common approach when it comes to schma migrations is to modify data that currently adheres to one format so that it matches new format requirements. This process is usually destructive: the old data is assumed to be obsolete after the migration and is eliminated during the migration process. But we are now dealing with a situation where multiple schema versions may have to exist in parallel because there can be multiple clients in a system that run different versions of some application software.
 
-It is time to approach this issue in an orderly fashion. We will begin the discussion by proposing a taxonomy for thinking about migration strategies that will take into account where data is stored, how it is modified and where this modification happens. After that we will take an in-depth look at one particular approach that we have believe works best in our current situation.
+It is time to approach this issue in an orderly fashion. We will begin the discussion by proposing a taxonomy for thinking about migration strategies that will take into account *where* data is stored, *when* it is being modified and *where* this modification happens. After that we will take an in-depth look at one particular approach that we believe works best in our current situation.
 
 ### Where is data being stored?
 
@@ -436,9 +457,9 @@ These new options, together with the traditional approach, form the three values
 
 These three alternatives constitute the first dimension of the taxonomy we are building up. Next we turn our attention to possible migration mechanics.
 
-### How is data being modified?
+### When is data being modified?
 
-From our previous discussion we can identify two different *mechanisms* to perform migrations. The first one is the traditional approach where data is modified no matter if it is required or not. We have seen that this could happen in a *on-shot* fashion at a single point in time where all existing documents are updated at once or *continuously* while new documents are coming in. The essential tools to implement this type of migration are *tasks* that can be executed by the responsible services or workers and *hooks* that make it possible to intercept the data flow and perform document updates as soon as possible.
+From our previous discussion we can identify two different mechanisms to perform migrations. The first one is the traditional approach where data is modified no matter if it is required or not. We have seen that this could happen in a *on-shot* fashion at a single point in time where all existing documents are updated at once or *continuously* while new documents are coming in. The essential tools to implement this type of migration are *tasks* that can be executed by the responsible services or workers and *hooks* that make it possible to intercept the data flow and perform document updates as soon as possible.
 
 We have also already encountered the second migration mechanism in the form of adapters that were briefly discussed in the last section. In contrast to migration tasks, adapters perform migrations *on-the-fly* as it were. It is characteristic for this approach that document updates happen only when documents are actually needed by an application. Data that is never touch will never be migrated. To get a handle on this *how-to*-dimension we propose to use the following terminology:
 
@@ -477,7 +498,7 @@ The strategy we are going to present is not the only reasonable choice as should
   <figcaption>
     <b>Chesterfield.</b>
     <span>
-      A type of luxurious couch. And and appropriate name for a migration strategy that has you covered in all kinds of circumstances.
+      A type of luxurious couch. And an appropriate name for a migration strategy that has you covered in all kinds of circumstances.
     </span>
   </figcaption>
 </figure>
@@ -499,27 +520,86 @@ The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an
 
 ### An eager server-side multi-version migration strategy
 
-The migration strategy we present here is an *eager, server-side, multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes` endpoint for document updates and activating different *transformers* which perform the document updates, all of which is happening on the server-side database with updates being replicated to client-databases afterwards.
+The *chesterfield migration* is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
+
+<figure class="diagram" id="figure-3">
+  <img src="images/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
+  <figcaption>
+    <b>Figure 3: Chesterfield migration.</b>
+    <span>
+      Documents exist in multiple versions in order to support multiple application versions through a single database. Transformers are the engines that perform up and down migrations.
+    </span>
+  </figcaption>
+</figure>
+
+
+
+
+```
+- sufficiently complex, so setting up an example will be helpful
+  - situation
+    - three data schema versions around
+    - show package.json for each schema
+    - we want to maintain all three versions in parallel
+      => migrate up and down
+
+  - migration happens on the server: documents have to be distributed through the system
+    - replication policy: only get current and newer docs via replication
+      => allows for seamless migration via 'preemtive migration'
+        - clients start down migrating at once
+    -> manage replication flow
+      -> version in _id
+      -> filtered replication
+    - clients need to deal with missing documents that have not been replicated
+      -> if strictly depending data, put in one doc
+
+  - managing multiple versions in a single database
+    - references without versions so associations remain intact
+    - clients restrict access to versions they know
+    - querying data: views and mango selectors
+    - optional throw-away of old data via local filtered replication on tmp-db
+    - no need to change urls for client
+```
+
+// example schemas
+```
+todo-app-1.0.0
+  todo-item-1.0.0
+
+todo-app-2.0.0
+  todo-item-2.0.0
+  status-1.0.0
+
+todo-app-3.0.0
+  todo-item-3.0.0 # folder/group/list
+  status-1.0.0
+```
 
 
 
 
 
+### Transformer modules
 
-- broad strokes / theory
-  - server-side migrators
-  - id-management
-  - clients use views to distinguish schemas
-  - clients need to deal with missing documents that have not been replicated
-    -> if strictly depending data, put in one doc
-  - replication policy: only get current and newer docs via replication
-  - optional throw-away of old data via local filtered replication on tmp-db
+```
+- on server side, migration is implemented as follows:
+  1. listen to changes, filter by old (source) schema version
+  2. apply migration to each doc
+  3. create doc with new version or update
+- works in both directions
+- complexity analysis (?)
+- server-side transformers consisting of
+  - type registry
+  - transformation engine
+  - update handler
+```
 
 
-### Migrators
-
-- migrator concept
-
+```
+- transactions are on doc level
+- downsides:
+  - not easy to drop (purge) old versions
+```
 
 
 
@@ -612,76 +692,6 @@ As a general migration strategy, this approach looks very promising indeed. It w
 
 
 
-### Per-version-database
-<figure class="diagram" id="figure-3">
-  <img src="images/per-version-dbs.svg" alt="Schematic view of per version databases" />
-  <figcaption>Figure 3: Per Version Databases</figcaption>
-</figure>
-
-TBD
-
-
-TBD
-
-```
-- New requirement: Legacy support
-- scenario: apps for Android and iOS with update-hurdles
-- strategy: create a database per version with bi-directional server-side migrations
-  - db name eg `userdb-30303964663133622d313137312d343566332d383564392d646534303732613661643637/v1`, etc
-  - (dbnames can contain slashes)
-  - pro: reflects API on REST interface `<couchdb url>/<db name>/<version>`
-  - all db files in one directory
-  - old api versions can be easily dropped
-- how to actually run migrations?
-  - via copy
-    1. query changes feed on source db
-    2. apply migration on each doc (-change)
-    3. write (update) doc to target db
-    - problem: duplicated docs, client has to replicate all docs again
-    - optimisation: replicate docs which are not touched (same schema)
-  - via replication
-    1. replicate source to target
-    2. listen to changes on target
-    3. run migrations on each doc and update doc
-    - benefit: docs are only replicated to client if needed
-    - problem: inconsistent state, client need to ignore old data
-- works in both directions
-- benefits: single responsibility (easier to maintain and test)
-- caveat: manage many dbs on the server
-- migrations can be run on advance, then update clients. Then clients need to replicate new docs
-- new per db version databases can also be created on demand. Problem: not seamless, client needs to wait until migrations completed.
-- caveat: data duplication
-
-Problem of this approach: db transactions not supported. On CouchDB, transactions are per document. Which leads to the next strategy:
-```
-
-### Per-version-documents
-<figure class="diagram" id="figure-4">
-  <img src="images/per-version-docs.svg" alt="Schematic view of per version documents" />
-  <figcaption>Figure 4: Per Version Documents</figcaption>
-</figure>
-
-TBD
-
-```
-- more elegant strategy: keep multiple document-versions in the same database
-- since transactions are on doc level
-- each doc has a version in its id, eg `todo-item:02cda16f19ed5fe4364f4e6ac400059b:v1`
-- references must be without version,  
-  eg `"todoItemId": "02cda16f19ed5fe4364f4e6ac400059b"`
-- clients restrict access to version it knows (via views or Mango selector)
-- on server side, migration is implemented as follows:
-  1. listen to changes, filter by old (source) schema version
-  2. apply migration to each doc
-  3. create doc with new version or update
-- works in both directions
-- migration can be run in advance, clients can start down replicating migrated docs right away, so seamless update process, all migrated docs are already on the client
-- downsides:
-  - not easy to drop (purge) old versions
-  - data duplication
-- no need to change urls for client
-- need to scope views on each client
-```
 
 ## Summary and Evaluation
 
