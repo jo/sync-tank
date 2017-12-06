@@ -536,7 +536,7 @@ The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an
 
 ### An eager server-side multi-version migration strategy
 
-The *chesterfield migration* is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
+The chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
 
 <figure class="diagram" id="figure-3">
   <img src="images/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
@@ -548,49 +548,81 @@ The *chesterfield migration* is an *eager server-side multi-version migration*. 
   </figcaption>
 </figure>
 
+This setup is rather complex, involving a number of new ideas and several moving pieces. It will therefore benefit our discussion to take a moment and illustrate the situation using our working example. In the previous sections we have developed a simple todo app that has passed through a few iterations by now. The schema has evolved to accomodate an item's `isImportant` and `status` values. Because our current problem is quite involved, we would like to introduce yet another feature that comes with yet another breaking schema change, so that there is a bit more material to work with.
+
+```cucumber
+As an app user
+I want to group todo items
+so that I can be better organized even when there are a lot of things to do.
+```
+
+To keep things simple, we will require each todo item to belong to exactly one group. This association can be established via an additional `group`-attribute that stores the respective group name for each todo item. If no particular group is chosen by the user, items should be assigned to a group named "default". You could argue that this didn't have to be a *breaking* schema change, that it would be possible for apps to handle older items without `group`-attributes as though they were *default* items. But let's assume for the sake of argument that in our case this is not good enough for app developers. They *need* every todo item to state its group. And as we argued that app expectations define a data schema to begin with, so they also define what counts as a breaking change. To make a long story short: we need to *require* a `group`-attribute for each todo item, and we need to go over all existing items and add them to the default group. So we indeed need to run another migration.
+
+The grouping feature has forced us to introduce another major schema version. We are now dealing with three schema versions, and accordingly we need to maintain all three of them in parallel, in order to support all the apps out there that have never been updated. The following listings give a quick overview over the three schema versions using the manifest-notation from the schema-section above.
+
+The first major version started out with the bare todo items and introduced `settings`-documents and the `isImortant`-flag as two features:
+
+```json
+{
+  "name": "todo-app",
+  "version": "1.2.0",
+  "dependencies": {
+    "settings": "^1.0.0",
+    "todo-item": "^1.1.0"
+  }
+}
+```
+
+The second major version introduced a separate `status`-document while removing the `isDone`-property from todo items:
+
+```json
+{
+  "name": "todo-app",
+  "version": "2.0.0",
+  "dependencies": {
+    "settings": "^1.0.0",
+    "todo-item": "^2.0.0",
+    "todo-item-status": "^1.0.0"
+  }
+}
+```
+
+The third major version that was just introduced requires todo items to have a `group`-property, hence the todo item schema had to be updated once more:
+
+```json
+{
+  "name": "todo-app",
+  "version": "3.0.0",
+  "dependencies": {
+    "settings": "^1.0.0",
+    "todo-item": "^3.0.0",
+    "todo-item-status": "^1.0.0"
+  }
+}
+```
+
+These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up to that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes down to support older apps. Apart from the actual migration logic this setup requires some particular infrastructure to work well. In particular, we will need to distribute documents with multiple versions throughout the system and we will need to be able to work with multiple version from inside applications. Let's take a closer look.
 
 
 
 ```
-- sufficiently complex, so setting up an example will be helpful
-  - situation
-    - three data schema versions around
-    - show package.json for each schema
-    - we want to maintain all three versions in parallel
-      => migrate up and down
+- migration happens on the server: documents have to be distributed through the system
+  - replication policy: only get current and newer docs via replication
+    => allows for seamless migration via 'preemtive migration'
+      - clients start down migrating at once
+  -> manage replication flow
+    -> version in _id
+    -> filtered replication
+  - clients need to deal with missing documents that have not been replicated
+    -> if strictly depending data, put in one doc
 
-  - migration happens on the server: documents have to be distributed through the system
-    - replication policy: only get current and newer docs via replication
-      => allows for seamless migration via 'preemtive migration'
-        - clients start down migrating at once
-    -> manage replication flow
-      -> version in _id
-      -> filtered replication
-    - clients need to deal with missing documents that have not been replicated
-      -> if strictly depending data, put in one doc
-
-  - managing multiple versions in a single database
-    - references without versions so associations remain intact
-    - clients restrict access to versions they know
-    - querying data: views and mango selectors
-    - optional throw-away of old data via local filtered replication on tmp-db
-    - no need to change urls for client
+- managing multiple versions in a single database
+  - references without versions so associations remain intact
+  - clients restrict access to versions they know
+  - querying data: views and mango selectors
+  - optional throw-away of old data via local filtered replication on tmp-db
+  - no need to change urls for client
 ```
-
-// example schemas
-```
-todo-app-1.0.0
-  todo-item-1.0.0
-
-todo-app-2.0.0
-  todo-item-2.0.0
-  status-1.0.0
-
-todo-app-3.0.0
-  todo-item-3.0.0 # folder/group/list
-  status-1.0.0
-```
-
 
 
 
