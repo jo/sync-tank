@@ -189,6 +189,22 @@ package, versioned individually, and the dataschema collects them together.
 }
 ```
 
+```
+{
+  _id: 'todo-app:todo-item:<uuid>:v:2',
+  ...
+  app: {
+    name: 'todo-app',
+    version: '1.2.3'
+  },
+
+  schema: {
+    'todo-item',
+    version: '2.3.4'
+  }
+}
+```
+
 To sum up this discussion, introducing format-requirements on schemaless databases opens up a space between purely implicit schemas and rigidly explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions. This way, we can better find the sweet spot between data consistency and flexibility that we see fit for our projects. Storing the schema version of each document in the document paves the way for implementing schema migrations, which we will now turn our attention to.
 
 
