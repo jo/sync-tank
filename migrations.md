@@ -509,7 +509,7 @@ In order to have a memorable reference, we are going to brand our strategy as *c
 
 The solution we discuss here does not come out of thin air. It has emerged from a longer discussion with contributers from different institutions and the offline-first community. To give credit where credit is due, we would like to begin with a very brief recap of the background of our approach.
 
-During his time with eHealth Africa Johannes began to think about the problem of distributed migrations together with [Jan Lenard](http://writing.jan.io/). When he later joined immmr, the company was still on its way to developing a market-ready version of its first product. At this time, there were a lot of concerns about the viability of schema migrations. The only real alternative to migrations - getting everything right from the start - has some problems of its own so Johannes and Ben Kampmann generated several ideas for migration strategies, from which the approach we are going to present here emerged as a final result.
+During his time with eHealth Africa Johannes began to think about the problem of distributed migrations together with [Jan Lehnardt](http://writing.jan.io/). When he later joined immmr, the company was still on its way to developing a market-ready version of its first product. At this time, there were a lot of concerns about the viability of schema migrations. The only real alternative to migrations - getting everything right from the start - has some problems of its own so Johannes and Ben Kampmann generated several ideas for migration strategies, from which the approach we are going to present here emerged as a final result.
 
 <figure>
   <img src="images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
