@@ -70,7 +70,7 @@ This is a JSON-document storing information about a todo item. We will see more 
 
 CouchDB uses `_id` to uniquely identify documents. If there is any information you need to be unique throughout the database, put it into the `_id`. If you don't set one yourself, CouchDB will create a UUID for you and set it for you, but we recommend to take the opportunity and store more meaningful information here, in other words: make the `_id` semantic! In the example we store the document type along with a UUID. This allows us to quickly identitfy the kind of document we are dealing with if this id is returned e.g. from a query. It also allows us to extract documents by type via the handy [`_all_docs`](http://docs.couchdb.org/en/2.1.1/api/database/bulk-api.html#db-all-docs) query. What's more, it is possible to establish relations between documents through the `_id`. For instance, imagine we also want to store the status of a todo item in it's own document. If we set its `_id` to `todo-item:02cda16f19ed5fe4364f4e6ac400059b:status` we will be able to see at a glance that this is a document of type `todo-item-status` and know which todo item it is associated with. Finding a good strategy for creating `_id`s is one of the challenges when it comes to data design. If you want to learn more about this, please refer to the section [embrace the document id](http://ehealthafrica.github.io/couchdb-best-practices/#embrace-the-document-id) of the CouchDB best practices guide.
 
-As was briefly mentioned above, CouchDB allows to retrieve documents by implementing the powerful [MapReduce](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) pattern. In particular, it allows you to create so-called 'views' that define which data should be returned when they are queried. CouchDB will then build indices to find the requested data quickly and efficiently. As of version 2.0.0 CouchDB also allows queries via [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html) that are based on MapRecude and are very performant yet flexible. The ability to query efficiently is of central importance when it comes to data design but there is no need to go into further depth at this point as the discussion of migrations will not require that.
+As was briefly mentioned above, CouchDB allows to retrieve documents by implementing the powerful [MapReduce](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) pattern. In particular, it allows you to create so-called 'views' that define which data should be returned when they are queried. CouchDB will then build indices to find the requested data quickly and efficiently. As of version 2.0.0 CouchDB also allows queries via [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html) that are based on MapReduce and are very performant yet flexible. The ability to query efficiently is of central importance when it comes to data design but there is no need to go into further depth at this point as the discussion of migrations will not require that.
 
 There is one last topic we have to address here if we are going to talk about migrations further down the road, and that is *conflicts*. Conflicts (as opposed to *document update conflicts*) can arise when data is being replicated between multiple instances of CouchDB. To get a feeling for when this may happen, imagine the following 'split brain' scenario: Our friend Andi has CouchDB running on two devices. On both of them he connects to the same database which is currently in the exact same state, meaning all the documents are the same on both devices. This is also true for a document which stores the name of his favorite programming language, Elixir. If there was a network connection between both devices, any data changes on one could be replicated to the other so both would be synchronized. Currently however, there is no network connection. Now Andi goes and changes his favorite language on both devices to something different (in order to break the system, of course, not because his preferences change so rapidly). On the first device, he updates the document to store Lisp, on the other device he updates the same document to store Lua as his favorite Language. Now if both devices reconnect CouchDB will try and bring all data to the same state, but it is inherently unclear which one of the changes should determine the final version of the language document. At this point, CouchDB will keep both versions of the document and leave it to the user to resolve the conflict.
 
@@ -558,7 +558,7 @@ so that I can be better organized even when there are a lot of things to do.
 
 To keep things simple, we will require each todo item to belong to exactly one group. This association can be established via an additional `group`-attribute that stores the respective group name for each todo item. If no particular group is chosen by the user, items should be assigned to a group named "default". You could argue that this didn't have to be a *breaking* schema change, that it would be possible for apps to handle older items without `group`-attributes as though they were *default* items. But let's assume for the sake of argument that in our case this is not good enough for app developers. They *need* every todo item to state its group. And as we argued that app expectations define a data schema to begin with, so they also define what counts as a breaking change. To make a long story short: we need to *require* a `group`-attribute for each todo item, and we need to go over all existing items and add them to the default group. So we indeed need to run another migration.
 
-The grouping feature has forced us to introduce another major schema version. We are now dealing with three schema versions, and accordingly we need to maintain all three of them in parallel, in order to support all the apps out there that have never been updated. The following listings give a quick overview over the three schema versions using the manifest-notation from the schema-section above.
+The grouping feature has forced us to introduce another major schema version. We are now dealing with three schema versions, and accordingly we need to maintain all three of them in parallel, in order to support all the apps out there that have never been updated. The following listings give a quick overview over the three schema versions using the manifest-notation introduced in the schema-section above.
 
 The first major version started out with the bare todo items and introduced `settings`-documents and the `isImortant`-flag as two features:
 
@@ -601,25 +601,67 @@ The third major version that was just introduced requires todo items to have a `
 }
 ```
 
-These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up to that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes down to support older apps. Apart from the actual migration logic this setup requires some particular infrastructure to work well. In particular, we will need to distribute documents with multiple versions throughout the system and we will need to be able to work with multiple version from inside applications. Let's take a closer look.
+These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes down to support older apps. Apart from the actual migration logic this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look.
 
+#### Replication channels
 
+Chesterfield is a *server-side* migration. This means that apps will replicate documents from their local databases to the server-side database where *transformers* will produce all relevant versions of the documents that will then be synchronized across the system. If we dig a little further though, we will find that not *all* versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic if we can prevent newer clients from receiving older documents.
+
+Do we also need to prevent clients from receiving *newer* document versions than they can currently handle? The answer depends on which side we favor in a trade-off between replication traffic and ease of application update. On the one hand, preventing newer documents from being replicated to clients that are not yet ready results in lower traffic. On the other hand, the newer documents will have to be replicated anyway once the application is updated and is expecting newer schema versions.
+
+And there is more: if we allow newer documents to reach clients that are not yet ready we can support what we would like to call **seamless migrations**, migrations without downtime. This is possible because we could migrate documents up to a new version, distribute them across the system, and only once the data had been propagated would we hand out newer client versions. Once the apps get updated, they find all the new data they need is already in their local database!
+
+Our short discussion has elicited two new requirements with respect to replication management:
+
+1. Do not replicate older documents to newer clients. They don't need those anymore.
+2. Replicate newer documents to older clients. They can use those once they get updated.
+
+Replication flow management is realised in CouchDB through [filtered replications](http://docs.couchdb.org/en/2.1.1/replication/protocol.html). The traditional way to specify which data to replicate is through filter functions. However, as of CouchDB 2.0.0 there is a new and very performant way to do implement filtered replications with the help of [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html#find-selectors). Let's see them in action.
+
+The following listing shows a selector that would be used by todo apps of version two to replicate documents from the server-side database. Note how the selector allows for specifying boolean operations on document attributes via `$or`, `$and`, and `$nin` as well as magnitude comparisons via `$gte`.
+
+```json
+{
+  "selector": {
+    "$or": [
+      {
+        "$and": [
+          { "schema": "todo-item" },
+          { "version": { "$gte": 2 } }
+        ]
+      }, {
+        "$and": [
+          { "schema": "todo-item-status" },
+          { "version": { "$gte": 1 } }
+        ]
+      }, {
+        "$and": [
+          { "schema": "settings" },
+          { "version": { "$gte": 1 } }
+        ]
+      }, {
+        "schema": {
+          "$nin": ["todo-item", "todo-item-status", "settings"]
+        }
+      }
+    ]
+  }
+```
+
+There are a few noteworthy aspects about this selector. We said it's supposed to be used by clients that work with schema version two. Recall from the example manifests that schema version two requires todo items of version two. But since we want apps to receive all newer documents as well we ask for replication of todo items of version two *or higher*. Similarly, schema version two works with status and settings documents of version one and so we replicate documents of version one *or higher*.
+
+These points are relatively straight forward from the previous discussion. But what about the last specification that asks for replication of all document types *except* for todo items, status, and settings documents? Again, the rationale behind this is that we want to client to be open to new schema versions. Thus including all currently unknown versions in the replication, new document types that may be added in the future would be replicated as well so as to allow for scheamless migrations.
+
+As a last point we like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding status document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
+
+#### Multiple schema versions in a single database
 
 ```
-- migration happens on the server: documents have to be distributed through the system
-  - replication policy: only get current and newer docs via replication
-    => allows for seamless migration via 'preemtive migration'
-      - clients start down migrating at once
-  -> manage replication flow
-    -> version in _id
-    -> filtered replication
-  - clients need to deal with missing documents that have not been replicated
-    -> if strictly depending data, put in one doc
-
 - managing multiple versions in a single database
   - references without versions so associations remain intact
   - clients restrict access to versions they know
   - querying data: views and mango selectors
+    -> version in _id
   - optional throw-away of old data via local filtered replication on tmp-db
   - no need to change urls for client
 ```
