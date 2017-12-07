@@ -131,7 +131,7 @@ If this has been convincing to you a plausible follow-up question is how to actu
     },
 
     "version": {
-      "enum": [1, 2, 3]
+      "enum": [1]
     },
 
     "title": {
@@ -556,6 +556,18 @@ so that I can be better organized even when there are a lot of things to do.
 ```
 
 To keep things simple, we will require each todo item to belong to exactly one group. This association can be established via an additional `group`-attribute that stores the respective group name for each todo item. If no particular group is chosen by the user, items should be assigned to a group named "default". You could argue that this didn't have to be a *breaking* schema change, that it would be possible for apps to handle older items without `group`-attributes as though they were *default* items. But let's assume for the sake of argument that in our case this is not good enough for app developers. They *need* every todo item to state its group. And as we argued that app expectations define a data schema to begin with, so they also define what counts as a breaking change. To make a long story short: we need to *require* a `group`-attribute for each todo item, and we need to go over all existing items and add them to the default group. So we indeed need to run another migration.
+
+For completion, here's a valid todo item document according to version three that can keep track of its associated group. Notice how we keep track of the document version in the `_id`, an addition we will come back to shortly.
+
+```json
+{
+  "_id": "todo-item:c2b2dc0a123d27752bc08ad39d000bbe:v:3",
+  "schema": "todo-item",
+  "version": 3,
+  "title": "Add all todo items to the default group.",
+  "group": "default"
+}
+```
 
 The grouping feature has forced us to introduce another major schema version. We are now dealing with three schema versions, and accordingly we need to maintain all three of them in parallel, in order to support all the apps out there that have never been updated. The following listings give a quick overview over the three schema versions using the manifest-notation introduced in the schema-section above.
 
