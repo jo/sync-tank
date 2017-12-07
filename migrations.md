@@ -127,8 +127,11 @@ If this has been convincing to you a plausible follow-up question is how to actu
     },
 
     "schema": {
-      "enum": ["todo-item-1"],
-      "type": "string"
+      "enum": ["todo-item"]
+    },
+
+    "version": {
+      "enum": [1, 2, 3]
     },
 
     "title": {
@@ -144,6 +147,7 @@ If this has been convincing to you a plausible follow-up question is how to actu
   "required": [
     "_id",
     "schema",
+    "version",
     "title"
   ]
 }
@@ -154,13 +158,14 @@ This specification formulates some expectations and requirements any valid todo 
 ```json
 {
   "_id": "todo-item:02cda16f19ed5fe4364f4e6ac400059b",
-  "schema": "todo-item-1",
-  "title": "Clean both swimming pools",
+  "schema": "todo-item",
+  "version": 1,
+  "title": "Feed the trolls.",
   "isDone": false
 }
 ```
 
-The example features a `schema` attribute on the document with a value of `todo-item-1`. This stores not only the document type but also the schema version of the document, most valuable information once we have to implement schema migrations. We recommend to make the version number a part of the schema id. This way the version is tightly coupled with the data format, while leaving enough room to change document versions independently of each other. For instance, we could upgrade `address-1` documents to `address-2` documents  while the related user data could still be stored in `user-1` documents.
+The example features `schema` and `version` attributes on the document with values of `todo-item` and `1` respectively. This will be most valuable information once we have to implement schema migrations. We also recommend to maintain a schema version for each document type *separately*. This way, the version is tightly coupled with the data format, while leaving enough room to change document versions independently of each other. For instance, we could upgrade `address` documents from version `1` to `2` while the related user data could still be stored in `user` documents. This prevents us from increasing schema versions unnecessarily.
 
 Being explicit about schemas is also the first step to *versioning* them. As a final practical recommendation we suggest to use [semantic versioning](http://semver.org/), properly interpreted to work well with data schemas, in order to keep track of how the schema evolves. We use semantic versioning to determine the version of the *database schema*, which is the collection of all *individual document schemas*. This way it is easy to understand the type and severity of schema changes:
 
@@ -174,6 +179,8 @@ TBD
 data schema versioning through a form of package.json where each type is its own
 package, versioned individually, and the dataschema collects them together.
 
+But why do we just specify version by integers, not by semantic version in the docs? -> Der Semsel.
+
 // schema manifest
 ```
 
@@ -185,22 +192,6 @@ package, versioned individually, and the dataschema collects them together.
     "address": "^2.0.0",
     "todo-item": "^1.1.0",
     "user": "^1.3.1"
-  }
-}
-```
-
-```
-{
-  _id: 'todo-app:todo-item:<uuid>:v:2',
-  ...
-  app: {
-    name: 'todo-app',
-    version: '1.2.3'
-  },
-
-  schema: {
-    'todo-item',
-    version: '2.3.4'
   }
 }
 ```
@@ -229,7 +220,8 @@ For now, this piecemeal approach of worrying about one user and one database at 
 ```json
 {
   "_id": "todo-item:cde95c3861f9f585d5608fcd35000a7a",
-  "schema": "todo-item-1",
+  "schema": "todo-item",
+  "version": 1,
   "title": "reimplement my pet project in Rust",
   "isDone": true
 }
@@ -260,7 +252,8 @@ Obviously, this feature has no implications for the todo items. We decide to int
 ```json
 {
   "_id": "settings",
-  "schema": "settings-1",
+  "schema": "settings",
+  "version": 1,
   "color": "#e20074"
 }
 ```
@@ -280,7 +273,8 @@ We already have the `isDone` property in place that keeps track of an item's pro
 ```json
 {
   "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5",
-  "schema": "todo-item-2",
+  "schema": "todo-item",
+  "version": 2,
   "title": "change the world",
   "isImportant": true,
   "status": "active"
@@ -292,7 +286,8 @@ This is a valid strategy, but we can do better. Up to this point, a todo item ha
 ```json
 {
   "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5",
-  "schema": "todo-item-2",
+  "schema": "todo-item",
+  "version": 2,
   "title": "change the world",
   "isImportant": true
 }
@@ -303,7 +298,8 @@ And this might be the corresponding status document:
 ```json
 {
   "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5:status",
-  "schema": "todo-item-status-1",
+  "schema": "todo-item-status",
+  "version": 1,
   "status": "active"
 }
 ```
@@ -416,7 +412,8 @@ To illustrate this approach with an example, let's take another look at the todo
 ```json
 {
   "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818",
-  "schema": "todo-item-1",
+  "schema": "todo-item",
+  "version": 1,
   "title": "Calculate the carbon footprint of a bitcoin transaction",
   "isDone": true
 }
@@ -427,7 +424,8 @@ And it returns the updated documents, a todo item and a status-document with a p
 ```json
 {
   "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818",
-  "schema": "todo-item-2",
+  "schema": "todo-item",
+  "version": 2,
   "title": "Calculate the carbon footprint of a bitcoin transaction"
 }
 ```
@@ -435,7 +433,8 @@ And it returns the updated documents, a todo item and a status-document with a p
 ```json
 {
   "_id": "todo-item:8f5e6edb6f5208abc14d9f49f4003818:status",
-  "schema": "todo-item-status-1",
+  "schema": "todo-item-status",
+  "version": 1,
   "status": "done"
 }
 ```
@@ -625,21 +624,18 @@ The following listing shows a selector that would be used by todo apps of versio
   "selector": {
     "$or": [
       {
-        "$and": [
-          { "schema": "todo-item" },
-          { "version": { "$gte": 2 } }
-        ]
-      }, {
-        "$and": [
-          { "schema": "todo-item-status" },
-          { "version": { "$gte": 1 } }
-        ]
-      }, {
-        "$and": [
-          { "schema": "settings" },
-          { "version": { "$gte": 1 } }
-        ]
-      }, {
+        "schema": "todo-item",
+        "version": { "$gte": 2 }
+      },
+      {
+        "schema": "todo-item-status",
+        "version": { "$gte": 1 }
+      },
+      {
+        "schema": "settings",
+        "version": { "$gte": 1 }
+      },
+      {
         "schema": {
           "$nin": ["todo-item", "todo-item-status", "settings"]
         }
@@ -650,24 +646,40 @@ The following listing shows a selector that would be used by todo apps of versio
 
 There are a few noteworthy aspects about this selector. We said it's supposed to be used by clients that work with schema version two. Recall from the example manifests that schema version two requires todo items of version two. But since we want apps to receive all newer documents as well we ask for replication of todo items of version two *or higher*. Similarly, schema version two works with status and settings documents of version one and so we replicate documents of version one *or higher*.
 
-These points are relatively straight forward from the previous discussion. But what about the last specification that asks for replication of all document types *except* for todo items, status, and settings documents? Again, the rationale behind this is that we want to client to be open to new schema versions. Thus including all currently unknown versions in the replication, new document types that may be added in the future would be replicated as well so as to allow for scheamless migrations.
+These points are relatively straight forward from the previous discussion. But what about the last specification that asks for replication of all document types *except* for todo items, status, and settings documents? Again, the rationale behind this is that we want clients to be open to new schema versions. Thus by including all currently unknown versions in the replication, new document types that may be added in the future would be replicated as well so as to allow for seamless migrations.
 
-As a last point we like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding status document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
+As a last point we'd like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding status document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
 
 #### Multiple schema versions in a single database
 
+After successful replication clients will have all necessary data in their local databases, although potentially in multiple versions. This raises the question of how parallel schema versions can be managed within a single database.
+
+An obvious first requirement is that every document's `_id` now has to reflect the version number. This was already addressed when we introduced our taxonomy above. *Single-version* and *multi-db* migrations do not have to modify document identifiers - they can simply reuse them across versions. *Multi-version* migrations, however, cannot afford this convenience. One option for reflecting the version in the `_id` is to simply add it at the end. This would for instance create todo items with `_id`s like `todo-item:ce2f71ee7db9d6decfe459ca9d000df5:v:2`. A transformator performing an up-migration of this document would accordingly have to increase the version number to 3 without modifying the hash so the document could still be identified.
+
+Be careful, though, not to rely on document versions when it comes to imlementing associations. If we associate, say, an address with a user through a `userId`-attribute on the address, this should not specify the version of the user document. Otherwise migrations could destroy existing associations.
+
+Apart from reflecting the schema version in the document identifier we have made sure from early on to keep `schema` and `version`-attributes in each document. This will pay off now as clients need to retrieve exactly the version of a piece of data that they can currently work with. Traditionally most data was retrieved from CouchDB via *views* but once again Mango selectors are a recent, very performant alternative. By way of an example consider a client working with data schema version two that wants to display a list of todos. The same todo may exist in multiple parallel versions in the database, but the client can retrieve exactly the version it knows how to handle using the following filter.
+
+```json
+{
+  "selector": {
+    "$or": [
+      {
+        "schema": "todo-item",
+        "version": 2
+      },
+      {
+        "schema": "todo-item-status",
+        "version": 1
+      }
+    ]
+  }
+}
 ```
-- managing multiple versions in a single database
-  - references without versions so associations remain intact
-  - clients restrict access to versions they know
-  - querying data: views and mango selectors
-    -> version in _id
-  - optional throw-away of old data via local filtered replication on tmp-db
-  - no need to change urls for client
-```
 
+These three guiding principles - reflecting the document version in the identifier, establishing associations through raw ids, and querying documents by relevant `schema` and `version` - allow  clients to handle multiple parallel schema versions in a single database. All this is possible without having to change any URLs when comminication with the server-side database.
 
-
+Before moving on to see how the transformer engine works under the hood we would like to address a concern you may have regarding the size of local databases. Memory is still a somewhat scarce resource especially for mobile clients. Would the approach we have sketched out here not bloat client databases unnecessarily by keeping legacy schema versions around when they are in fact no longer needed? As user data builds up, this may indeed become a problem at some point. If that's the case, we suggest creating an additional local database on the client and running a filtered replication that replicates only relevant document versions. After that, switch over to the new database and discard the old one alongside all legacy schema versions.
 
 ### Transformer modules
 
