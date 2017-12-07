@@ -557,7 +557,7 @@ so that I can be better organized even when there are a lot of things to do.
 
 To keep things simple, we will require each todo item to belong to exactly one group. This association can be established via an additional `group`-attribute that stores the respective group name for each todo item. If no particular group is chosen by the user, items should be assigned to a group named "default". You could argue that this didn't have to be a *breaking* schema change, that it would be possible for apps to handle older items without `group`-attributes as though they were *default* items. But let's assume for the sake of argument that in our case this is not good enough for app developers. They *need* every todo item to state its group. And as we argued that app expectations define a data schema to begin with, so they also define what counts as a breaking change. To make a long story short: we need to *require* a `group`-attribute for each todo item, and we need to go over all existing items and add them to the default group. So we indeed need to run another migration.
 
-For completion, here's a valid todo item document according to version three that can keep track of its associated group. Notice how we keep track of the document version in the `_id`, an addition we will come back to shortly.
+For completion, here's a valid todo item document according to version three that stores its associated group. Notice how we keep track of the document version in the `_id`, an addition we will come back to shortly.
 
 ```json
 {
@@ -616,49 +616,33 @@ These are the three major schema versions that we have to maintain in parallel. 
 
 #### Replication channels
 
-Chesterfield is a *server-side* migration. This means that apps will replicate documents from their local databases to the server-side database where *transformers* will produce all relevant versions of the documents that will then be synchronized across the system. If we dig a little further though, we will find that not *all* versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic if we can prevent newer clients from receiving older documents.
+Chesterfield is a *server-side* migration. This means that apps will replicate documents from their local databases to the server-side database where *transformers* will produce all relevant versions of the documents that will then be synchronized across the system. If we dig a little further though, we will find that not *all* versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic and storage if we can prevent newer clients from receiving older documents.
 
 Do we also need to prevent clients from receiving *newer* document versions than they can currently handle? The answer depends on which side we favor in a trade-off between replication traffic and ease of application update. On the one hand, preventing newer documents from being replicated to clients that are not yet ready results in lower traffic. On the other hand, the newer documents will have to be replicated anyway once the application is updated and is expecting newer schema versions.
 
-And there is more: if we allow newer documents to reach clients that are not yet ready we can support what we would like to call **seamless migrations**, migrations without downtime. This is possible because we could migrate documents up to a new version, distribute them across the system, and only once the data had been propagated would we hand out newer client versions. Once the apps get updated, they find all the new data they need is already in their local database!
+And there is more: if we allow newer documents to reach clients that are not yet ready we can support what we would like to call *seamless migrations*, migrations without downtime. This is possible because we could migrate documents up to a new version, distribute them across the system, and only once the clients had enough time to receive the new data would we update them. Once the apps get updated, they find all the new data they need is already in their local database!
 
 Our short discussion has elicited two new requirements with respect to replication management:
 
 1. Do not replicate older documents to newer clients. They don't need those anymore.
 2. Replicate newer documents to older clients. They can use those once they get updated.
 
-Replication flow management is realised in CouchDB through [filtered replications](http://docs.couchdb.org/en/2.1.1/replication/protocol.html). The traditional way to specify which data to replicate is through filter functions. However, as of CouchDB 2.0.0 there is a new and very performant way to do implement filtered replications with the help of [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html#find-selectors). Let's see them in action.
+Replication flow management is realised in CouchDB through [filtered replications](http://docs.couchdb.org/en/2.1.1/replication/intro.html#controlling-which-documents-to-replicate). The traditional way to specify which data to replicate is through filter functions. However, as of CouchDB 2.0.0 there is a new and very performant way to implement filtered replications with the help of [Mango selectors](http://docs.couchdb.org/en/2.1.1/api/database/find.html#find-selectors). Let's see them in action.
 
-The following listing shows a selector that would be used by todo apps of version two to replicate documents from the server-side database. Note how the selector allows for specifying boolean operations on document attributes via `$or`, `$and`, and `$nin` as well as magnitude comparisons via `$gte`.
+The following listing shows a selector that would be used by todo apps of version two to replicate documents from the server-side database. Note how the selector allows for specifying boolean operations on document attributes via `$not` and `$lt`.
 
 ```json
 {
   "selector": {
-    "$or": [
-      {
-        "schema": "todo-item",
-        "version": { "$gte": 2 }
-      },
-      {
-        "schema": "todo-item-status",
-        "version": { "$gte": 1 }
-      },
-      {
-        "schema": "settings",
-        "version": { "$gte": 1 }
-      },
-      {
-        "schema": {
-          "$nin": ["todo-item", "todo-item-status", "settings"]
-        }
-      }
-    ]
+    "$not": {
+      "schema": "todo-item",
+      "version": { "$lt": 2 }
+    }
   }
+}
 ```
 
-There are a few noteworthy aspects about this selector. We said it's supposed to be used by clients that work with schema version two. Recall from the example manifests that schema version two requires todo items of version two. But since we want apps to receive all newer documents as well we ask for replication of todo items of version two *or higher*. Similarly, schema version two works with status and settings documents of version one and so we replicate documents of version one *or higher*.
-
-These points are relatively straight forward from the previous discussion. But what about the last specification that asks for replication of all document types *except* for todo items, status, and settings documents? Again, the rationale behind this is that we want clients to be open to new schema versions. Thus by including all currently unknown versions in the replication, new document types that may be added in the future would be replicated as well so as to allow for seamless migrations.
+There are a few noteworthy aspects about this selector. We said it's supposed to be used by clients that work with schema version two. Recall from the example manifests that schema version two requires todo items of version two. But since we want apps to receive all newer documents as well we ask to exclude lower versions from the replication. Similarly, this selector will also replicate all documents that are not todo item documents. This includes status and settings documents of version one and higher as well as all other types that may be added in the future. This way, clients can stay open to new schema versions and be prepared for the next seamless migration.
 
 As a last point we'd like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding status document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
 
