@@ -531,7 +531,7 @@ During his time with eHealth Africa Johannes began to think about the problem of
   <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
 </figure>
 
-The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an excellent opportunity to discuss the strategy with members from the offline-first community and we gratefully appreciate the thoughtful comments from Gregor Martinus, Bradley Holt, Martin Stadler (a former immmr-colleage!) and others. These discussions gave us a lot more confidence that we have found a robust approach that can persist through a number of challenging edge-cases.
+The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an excellent opportunity to discuss the strategy with members of the offline-first community and we gratefully appreciate the thoughtful comments from Gregor Martinus, Bradley Holt, Martin Stadler (a former immmr-colleage!) and others. These discussions gave us a lot more confidence that we have found a robust approach that can persist through a number of challenging edge-cases.
 
 ### An eager server-side multi-version migration strategy
 
@@ -654,7 +654,7 @@ An obvious first requirement is that every document's `_id` now has to reflect t
 
 Be careful, though, not to rely on document versions when it comes to imlementing associations. If we associate, say, an address with a user through a `userId`-attribute on the address, this should not specify the version of the user document. Otherwise migrations could destroy existing associations.
 
-Apart from reflecting the schema version in the document identifier we have made sure from early on to keep `schema` and `version`-attributes in each document. This will pay off now as clients need to retrieve exactly the version of a piece of data that they can currently work with. Traditionally most data was retrieved from CouchDB via *views* but once again Mango selectors are a recent, very performant alternative. By way of an example consider a client working with data schema version two that wants to display a list of todos. The same todo may exist in multiple parallel versions in the database, but the client can retrieve exactly the version it knows how to handle using the following filter.
+Apart from reflecting the schema version in the document identifier we have made sure from early on to keep `schema` and `version`-attributes in each document. This will pay off now as clients need to retrieve exactly the version of a piece of data that they can currently work with. Traditionally most data was retrieved from CouchDB via *views* but once again Mango selectors are a recent, very performant alternative. By way of an example consider a client working with data schema version two that wants to display a list of todos. The same todo may exist in multiple parallel versions in the database, but the client can retrieve exactly the version it knows how to handle using the following selector.
 
 ```json
 {
@@ -673,11 +673,67 @@ Apart from reflecting the schema version in the document identifier we have made
 }
 ```
 
-These three guiding principles - reflecting the document version in the identifier, establishing associations through raw ids, and querying documents by relevant `schema` and `version` - allow  clients to handle multiple parallel schema versions in a single database. All this is possible without having to change any URLs when comminication with the server-side database.
+These three guiding principles - reflecting the document version in the identifier, establishing associations through raw ids, and querying documents by relevant `schema` and `version` - allow  clients to handle multiple parallel schema versions in a single database. All this is possible without having to change any URLs when communication with the server-side database.
 
-Before moving on to see how the transformer engine works under the hood we would like to address a concern you may have regarding the size of local databases. Memory is still a somewhat scarce resource especially for mobile clients. Would the approach we have sketched out here not bloat client databases unnecessarily by keeping legacy schema versions around when they are in fact no longer needed? As user data builds up, this may indeed become a problem at some point. If that's the case, we suggest creating an additional local database on the client and running a filtered replication that replicates only relevant document versions. After that, switch over to the new database and discard the old one alongside all legacy schema versions.
+Before moving on to see how the transformer engine works under the hood we would like to address a concern you may have regarding the size of local databases. Memory is still a somewhat scarce resource especially for mobile clients. Would the approach we have sketched out here not bloat client databases unnecessarily by keeping legacy schema versions around when they are in fact no longer needed? As user data builds up, this may indeed become a problem at some point. If that's the case, don't despair, as there are ways to perform some data compaction. We suggest creating an additional local database on the client and running a filtered replication that replicates only relevant document versions. After that, switch over to the new database and discard the old one alongside all legacy schema versions.
 
 ### Transformer modules
+
+We are finally ready to take a close look at transformer modules, the main workhorse of our migration strategy. Transformer modules, or transformers for short, live on the server, they are responsible for noticing when a document has to be migrated and they create and persist new document versions. These are three different tasks - listening, creating, and persisting - and our transformers will be composed of three corresponding components. To be more precise, each transformer module will consist of a *registry*, a *migration logic unit*, and an *update handler*. Let's introduce each of those in turn and see what considerations have led us to design them the way we did.
+
+#### The registry
+
+Transformers are supposed to migrate documents once they are replicated to the server-side database. To figure out when to get active, transformers can inspect CouchDB's `_changes`-endpoint (either directly or via a helpful service that creates a changes feed for this purpose) to get a rough idea of what's happening on the database. In particular, they can find out which document ids have been involved in any database event. Because we designed document ids to reflect the document type transformers have a way to know when to perform a migration: every time a database event is happening, a transformer can check if the document involved has the type and version it is responsible for. And how do transformers know which documents are their responsibility? That's what the registry is for.
+
+The general idea is easy enough, but designing an understandable and maintainable system of transformer-responsiblities will be more challenging. If you remember from our discussion above, the fact that *Chesterfield* is a *multi-version* migration means that we will need to migrate documents between all possible (currently supported) versions. Every `todo-item-1` needs to be migrated to every other supported version and every other supported version needs to be migrated to `todo-item-1` - on every document creation and every document update. To manage the upcoming complexity inherent in this task we suggest to begin by introducing *lean* transformers that only perform the most basic of migration tasks: changing a single document type from one version to another. For instance, there might be a dedicated transformer just to change `todo-item-2` documents to `todo-item-1` documents.
+
+This simple migration task does not look like its posing much of a challenge in terms of implementation, but once we start thinking through the moving parts, things are not so simple anymore. We asked you to be prepared for a more technical discussion, and this is one of the points where we believe a detailed treatment can get you started on the right track and save you a lot of time and headache in the long run. So let's see what's so tricky about updating `todo-item-1` to `todo-item-2` documents.
+
+To approach this problem, we would like to start with the intuition we had when we were beginning to design the first transformers. At the time we thought that a transformer should listen on the changes feed for the *source document* it is responsible for. For example, the  transformer that migrates todo items from version one to version two should get active every time a document of `todo-item-1` appears in the changes feed. According to our example data schema the transformer would then create the corresponding `todo-item-2` and `status-1` documents. So even in this simple example, a document of a single type is split into multiple documents of different types during the migration process. For the reverse migration this means that multiple documents will have to be merged into a single one, and this is where our approach will start to break.
+
+To illustrate the failure scenario, let's playback in *slow-motion*, as it were, what happens when Marten creates a new todo item with his Android app, which runs on version two of the data schema. The action will create two documents, namely a `todo-item-2` and a `status-1` document. Once the documents are created, they are replicated to the server-side database where they arrive one by one. Say the new `todo-item-2` document arrives first. This triggers a transformer to wake up which is responsible for migrating todo items down from version two to version one. To create version one of the document, however, the transformer needs to set the `isDone` state properly which it cannot know until the `status-1` document has been replicated. So *unless all relevant documents have been replicated, the migration has to be aborted*. When the `status-1` document comes in after a while, all information is now there, but the *source-oriented* todo item transformer will not feel responsible anymore and the whole migration process fails.
+
+The solution to this problem is a *target-oriented* responsibility design. Transformers should be written with respect to the document classes they are *outputting*, not the ones they are reading. As a result, our todo item transformer would not focus on reading `todo-item-2` documents but for creating `todo-item-1` documents. This looks like just a change of perspective, but it makes a huge difference for a correct implementation. The registry for this transformer would now contain all document types that might play a role for creating `todo-item-1` documents, namely `todo-item-2` as well as `status-1`. Everytime any of these documents arrive, the transformer comes alive and tries to create or update a `todo-item-1` document. Sometimes this process may fail as we just saw, but eventually all relevant documents will have been replicated and the migration can succeed. To be very clear about this new learning, let's summarize our considerations as a basic rule:
+
+> The registry of a target-oriented transformer should have an entry for every document schema version that can contain relevant information for the documents the transformer is supposed to output.
+
+There are a few important additional points to this discussion that we feel would lead us too far away from our current focus on the different parts of our transformers. These points concern
+
+1. the amount of transformers required which might grow quadratically with the number of supported schema versions and could lead to maintenance problems if not optimized,
+2. the problem of migration loops where a transformer might migrate up a document and persist it only for another migrator to pick it up and migrate it back down which might trigger the first transformer again and so on,
+3. the concept of document-level transactions which emphasizes the need to keep information that *must* go together in a single document and otherwise embrace the idea that updates might only happen incrementally and might lead to temporarily inconsistent data if not treated carefully.
+
+For a further discussion of these points we would like to refer the inclined reader to Appendix A, B, and C respectively where we will take some time to go into greater depth. But for now it's time to move on to the second part of our transformers where the actual migration logic gets implemented.
+
+#### The migration logic unit
+
+Blah...
+
+
+
+
+
+
+```
+Move this content to Appendix
+  -> better approach: target-oriented
+    -> try to create v1-docs from v2-docs (or from v3, etc)
+      - requires a list of v2-docs (e.g. todo-item-2 and status-1)
+      - when one of them is incoming, try to create v1
+      - may fail when not all docs are synced
+      - will succeed eventually
+      -> problem: what happens when an *old version* is already there that is not yet updated,
+          e.g. there is already a status-1 but it is not up to date...
+- the registry lists all docs that are needed to create the *target*-version
+- have one transformer per version-version pair and type
+  -> complexity-analysis (rough)
+    - naive:
+      - (n-1)^2 version combinations
+      - t document-types
+      => O(t * n^2) transformers, e.g. with 5 versions and 20 types => 500 transformers!
+```
+
+
 
 ```
 - on server side, migration is implemented as follows:
