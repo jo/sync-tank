@@ -552,10 +552,10 @@ This setup is rather complex, involving a number of new ideas and several moving
 ```cucumber
 As an app user
 I want to group todo items
-so that I can be better organized even when there are a lot of things to do.
+so that I can stay organized even when there are a lot of things to do.
 ```
 
-To keep things simple, we will require each todo item to belong to exactly one group. This association can be established via an additional `group`-attribute that stores the respective group name for each todo item. If no particular group is chosen by the user, items should be assigned to a group named "default". You could argue that this didn't have to be a *breaking* schema change, that it would be possible for apps to handle older items without `group`-attributes as though they were *default* items. But let's assume for the sake of argument that in our case this is not good enough for app developers. They *need* every todo item to state its group. And as we argued that app expectations define a data schema to begin with, so they also define what counts as a breaking change. To make a long story short: we need to *require* a `group`-attribute for each todo item, and we need to go over all existing items and add them to the default group. So we indeed need to run another migration.
+To keep things simple, we will require each todo item to belong to exactly one group. This association can be established via an additional `group`-attribute that stores the respective group name for each todo item. If no particular group is chosen by the user, items should be assigned to a group named "default". You could argue that this didn't have to be a *breaking* schema change, that it would be possible for apps to handle older items without `group`-attributes as though they were *default* items. But let's assume for the sake of better illustration that in our case this is not good enough for app developers. They *need* every todo item to state its group. And as we argued that app expectations define a data schema to begin with, so they also define what counts as a breaking change. To make a long story short: we need to *require* a `group`-attribute for each todo item, and we need to go over all existing items and add them to the default group. So we indeed need to run another migration.
 
 For completion, here's a valid todo item document according to version three that stores its associated group. Notice how we keep track of the document version in the `_id`, an addition we will come back to shortly.
 
@@ -612,7 +612,7 @@ The third major version that was just introduced requires todo items to have a `
 }
 ```
 
-These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes down to support older apps. Apart from the actual migration logic this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look.
+These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes made with newer apps down to support older apps. Apart from the actual migration logic this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look at these two tasks.
 
 #### Replication channels
 
@@ -693,37 +693,70 @@ To approach this problem, we would like to start with the intuition we had when 
 
 To illustrate the failure scenario, let's playback in *slow-motion*, as it were, what happens when Marten creates a new todo item with his Android app which runs on version *two* of the data schema. The action will create two documents, namely a `todo-item-2` and a `status-1` document. Once the documents are created, they are replicated to the server-side database where they arrive one by one (clearly visible thanks to our slow motion setting were network traffic is almost unbearably slow). Say the new `todo-item-2` document arrives first. This triggers a transformer to wake up which is responsible for migrating todo items down from version two to version one. To create version one of the document, however, the transformer needs to set the `isDone` state properly which it cannot know until the `status-1` document has been replicated. So *unless all relevant documents have been replicated, the migration has to be aborted*. When the `status-1` document comes in after a while, all information is now there, but the *source-oriented* todo item transformer will not feel responsible anymore and the whole migration process fails.
 
-The solution to this problem is a *target-oriented* responsibility design. Transformers should be written with respect to the document classes they are *outputting*, not the ones they are reading. As a result, our todo item transformer would not focus on reading `todo-item-2` documents but on creating `todo-item-1` documents. This looks like no more than a change of perspective, but it makes a huge difference for a correct implementation. The registry for this transformer would now contain all document types that might play a role for creating `todo-item-1` documents, namely `todo-item-2` as well as `status-1`. Everytime any of these documents arrive, the transformer comes alive and tries to create or update a `todo-item-1` document. Sometimes this process may fail as we just saw, if replication is still ongoing, but eventually all relevant documents will have been replicated and the migration can succeed. To be very clear about this new learning, let's summarize our considerations as a basic rule:
+<figure class="diagram" id="figure-4">
+  <img src="images/responsibilities.svg" alt="Schematic view of responsibility types" />
+  <figcaption>
+    <b>Figure 4: Source versus target-oriented responsibility design - a subtle but impactful change of perspective.</b>
+    <span> On the left, a source-oriented transformer listens for one particular incoming schema and produces potentially multiple output documents. On the right, a target-oriented transformer tries to create one particular schema from potentially multiple relevant input documents.
+    </span>
+  </figcaption>
+</figure>
+
+The solution to this problem is a *target-oriented* responsibility design. Transformers should be written with respect to the document classes they are *outputting*, not the ones they are reading. Figure 4 illustrates the different approaches. For our example this would mean that our todo item transformer would not focus on *reading* `todo-item-2` documents but on *creating* `todo-item-1` documents. This looks like no more than a change of perspective, but it makes a huge difference for a correct implementation. The registry for this transformer would now contain all document types that might play a role for creating `todo-item-1` documents, namely `todo-item-2` as well as `status-1`. Everytime any of these documents arrive, the transformer comes alive and tries to create or update a `todo-item-1` document. Sometimes this process may fail as we just saw, if replication is still ongoing, but eventually all relevant documents will have been replicated and the migration can succeed. To be very clear about this new learning, let's summarize our considerations as a basic rule:
 
 > The registry of a target-oriented transformer should have an entry for every document schema version that can contain relevant information for the documents the transformer is supposed to output.
 
-There are a few important additional points to this discussion that we feel would lead us too far away from our current focus on the different transformer-parts. These points concern
+The impact of this new perspective will become even clearer once we discuss the inner workings of the transformer's *migration logic unit* in the next section. But before we go there, now is a good time for a short aside on the number of transformers we will have to write and maintain in order for this approach to work.
 
-1. the amount of transformers required which might grow quadratically with the number of supported schema versions and could lead to maintenance problems if not optimized,
-2. the problem of migration loops where a transformer might migrate a document up and persist it only for another migrator to pick it up and migrate it back down which might trigger the first transformer again and so on,
-3. the concept of document-level transactions which emphasizes the need to keep information that *must* be available together in a single document and otherwise embrace the idea that updates might only happen incrementally and might even lead to temporarily inconsistent data if not treated carefully.
+#### Aside: a rough and ready complexity analysis
 
-For a further discussion of these points we would like to refer the inclined reader to Appendix A, B, and C respectively where we will take some time to go into greater depth with these points. But for now it's time to move on to the second part of our transformers where the actual migration logic gets implemented.
+Migrating between all existing (or at least all supported) versions of a data schema might raise problems of maintainability through the sheer number of transformers necessary. A bit of accounting can help us get the discussion started. Say we start off with a single document type that is in version `v1`. We now update the schema to `v2`, so we will need to provide two transformers, one that generates `v1` documents from `v2` and one that generation `v2` documents from `v1`. After the next update to `v3` there are now already *six* transformers necessary to support conversion from every version to every other. In general, from every schema version that has ever existed in the system there may still be some documents around. So if we want to support all app versions we will have to provide as many transformers as there are ordered pairs, meaning $n (n - 1)$ transformers if the current data schema has version `n`. That's $n^2 - n$ - the amount of transformers grows quadratically with the number of supported schema versions! And we have only just considered a single document type.
+
+A data schema in the wild can easily accommodate dozens of document types. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every data schema update we need $t n (n - 1)$ transformers in total. If there are 6 schema versions and only 10 document types this already amounts to 300 transformers, which would be a nightmare to write, let alone to maintain.
+
+```
+- strategy:
+  - drop version support
+  - splitting data schema into smaller types, not updating complete data schema
+  - transformer-chains (avoiding loops)
+```
+
+
+
+
+
+
+But for now it's time to move on to the second part of our transformers where the actual migration logic gets implemented.
 
 #### The migration logic unit
 
-Blah...
+```
+- schema knowledge: how to get it, what is needed
+- splitting up documents
+- merging documents
+  - needs retrieval
+    -> more views?
+- caveat: the concept of document-level transactions which emphasizes the need to keep information that *must* be available together in a single document and otherwise embrace the idea that updates might only happen incrementally and might even lead to temporarily inconsistent data if not treated carefully.
+```
 
 
+#### The update handler
 
+```
+- MLU outputs current document, but may create conflict
+- fetch and save new docs
+- how to avoid loops
+  -> the problem of migration loops where a transformer might migrate a document up and persist it only for another migrator to pick it up and migrate it back down which might trigger the first transformer again and so on,
+- conflict generation, inter-schema conflicts
+```
 
 
 
 ```
 Move this content to Appendix
   -> better approach: target-oriented
-    -> try to create v1-docs from v2-docs (or from v3, etc)
-      - requires a list of v2-docs (e.g. todo-item-2 and status-1)
-      - when one of them is incoming, try to create v1
-      - may fail when not all docs are synced
-      - will succeed eventually
-      -> problem: what happens when an *old version* is already there that is not yet updated,
-          e.g. there is already a status-1 but it is not up to date...
+    -> problem: what happens when an *old version* is already there that is not yet updated,
+        e.g. there is already a status-1 but it is not up to date...
 - the registry lists all docs that are needed to create the *target*-version
 - have one transformer per version-version pair and type
   -> complexity-analysis (rough)
@@ -731,21 +764,6 @@ Move this content to Appendix
       - (n-1)^2 version combinations
       - t document-types
       => O(t * n^2) transformers, e.g. with 5 versions and 20 types => 500 transformers!
-```
-
-
-
-```
-- on server side, migration is implemented as follows:
-  1. listen to changes, filter by old (source) schema version
-  2. apply migration to each doc
-  3. create doc with new version or update
-- works in both directions
-- complexity analysis (?)
-- server-side transformers consisting of
-  - type registry
-  - transformation engine
-  - update handler
 ```
 
 
