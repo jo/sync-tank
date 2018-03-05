@@ -1,6 +1,6 @@
 ---
 layout: default
-permalink: /chesterfield-migration
+permalink: /chesterfield-migration/
 ---
 
 # [Sync<br/>Tank](/) Chesterfield Migration
@@ -21,7 +21,7 @@ We have come far. We now share a common vocabulary and a systematic understandin
 The strategy we are going to present is not the only reasonable choice as should be clear from the previous discussion. Still we believe that among the options we discussed it allows for a clean and maintainable implementation given that we want to support the complex scenario we have built up in the previous sections. To recap: we demand that our system support offline-capable applications and clients on multiple platforms that require different schema versions of application data, all the while providing full backwards-compatibility for older apps or services and enabling agile development.
 
 <figure>
-  <img src="/images/chesterfield-migration/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
+  <img src="/chesterfield-migration/images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
   <figcaption>
     <b>Chesterfield.</b>
     <span>
@@ -39,7 +39,7 @@ The solution we discuss here does not come out of thin air. It has emerged from 
 During his time with eHealth Africa Johannes began to think about the problem of distributed migrations together with Jan Lehnardt. When he later joined immmr, the company was still on its way to developing a market-ready version of its first product. At this time, there were a lot of concerns about the viability of schema migrations. The only real alternative to migrations - getting everything right from the start - has some problems of its own so Johannes and Ben Kampmann generated several ideas for migration strategies, from which the approach we are going to present here emerged as a final result.
 
 <figure>
-  <img src="/images/chesterfield-migration/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
+  <img src="/chesterfield-migration/images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
   <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
 </figure>
 
@@ -50,7 +50,7 @@ The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an
 The chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
 
 <figure class="diagram" id="figure-3">
-  <img src="/images/chesterfield-migration/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
+  <img src="/chesterfield-migration/images/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
   <figcaption>
     <b>Figure 3: Chesterfield migration.</b>
     <span>
@@ -203,7 +203,7 @@ To approach this problem, we would like to start with the intuition we had when 
 To illustrate the failure scenario, let's playback in *slow-motion*, as it were, what happens when Marten creates a new todo item with his Android app which runs on version *two* of the data schema. The action will create two documents, namely a `todo-item-2` and a `status-1` document. Once the documents are created, they are replicated to the server-side database where they arrive one by one (clearly visible thanks to our slow motion setting were network traffic is almost unbearably slow). Say the new `todo-item-2` document arrives first. This triggers a transformer to wake up which is responsible for migrating todo items down from version two to version one. To create version one of the document, however, the transformer needs to set the `isDone` state properly which it cannot know until the `status-1` document has been replicated. So *unless all relevant documents have been replicated, the migration has to be aborted*. When the `status-1` document comes in after a while, all information is now there, but the *source-oriented* todo item transformer will not feel responsible anymore and the whole migration process fails.
 
 <figure class="diagram" id="figure-4">
-  <img src="/images/chesterfield-migration/responsibilities.svg" alt="Schematic view of responsibility types" />
+  <img src="/chesterfield-migration/images/responsibilities.svg" alt="Schematic view of responsibility types" />
   <figcaption>
     <b>Figure 4: Source versus target-oriented responsibility design - a subtle but impactful change of perspective.</b>
     <span> On the left, a source-oriented transformer listens for one particular incoming schema and produces potentially multiple output documents. On the right, a target-oriented transformer tries to create one particular schema from potentially multiple relevant input documents.

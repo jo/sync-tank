@@ -1,6 +1,6 @@
 ---
 layout: default
-permalink: /distributed-migration-strategies
+permalink: /distributed-migration-strategies/
 ---
 
 # [Sync<br/>Tank](/) Distributed Migration Strategies
@@ -328,7 +328,7 @@ At this point we have some idea for how to change the data schema in order to re
 We are now at a point where a new version of an application may be confronted with older documents in the system that it does not know how to handle. But this prospect does not scare us because there is a common practice that is used in this scenario, and one that you probably know well already. We will call this the *traditional server-side migration*.
 
 <figure class="diagram" id="figure-1">
-  <img src="/images/distributed-migration-strategies/transactional-migration.svg" alt="Schematic view of traditional server-side migration" />
+  <img src="/distributed-migration-strategies/images/transactional-migration.svg" alt="Schematic view of traditional server-side migration" />
   <figcaption>
     <b>Figure 1: Traditional Server-Side Migration.</b>
     <span>
@@ -414,7 +414,7 @@ The traditional migration approach, server-side or client-side, with or without 
 When we introduced the `isImportant` flag to our data schema we mentioned only passingly that old documents without this flag would still be valid. This was because an app could treat a missing flag as `false` and the todo item as not important by default. We didn't need a big migration for this change at all because by interpreting the existing data appropriately the *clients* were able to ensure the smooth introduction of a new feature. Perhaps we can take cues from this pleasant experience and have the applications themselves play a bigger role in data migrations.
 
 <figure class="diagram" id="figure-2">
-  <img src="/images/distributed-migration-strategies/live-migration.svg" alt="Schematic view of adapter migration" />
+  <img src="/distributed-migration-strategies/images/live-migration.svg" alt="Schematic view of adapter migration" />
   <figcaption>
     <b>Figure 2: Adapter Migration.</b>
     <span>
