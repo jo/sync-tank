@@ -76,6 +76,9 @@ h4 {
   max-width: 41em;
 }
 
+ul {
+  list-style-type: none;
+}
 ol, ul {
   margin: 3ex 1em;
 }
