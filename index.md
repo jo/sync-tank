@@ -9,11 +9,11 @@ title: Thinking about Syncing
 
 Glad you're here! Read our first post about how to handle schema changes in CouchDB
 
-* [Distributed Migration Strategies](/distributed-migration-strategies/)
+* [Distributed Migration Strategies](/distributed-migration-strategies)
 
 and go deeper into praxis with
 
-* [Chesterfield Migration](/chesterfield-migration/)
+* [Chesterfield Migration](/chesterfield-migration)
 
 describing an eager server-side multi-version distributed migration strategy.
 
