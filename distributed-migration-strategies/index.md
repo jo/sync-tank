@@ -216,7 +216,7 @@ Being explicit about schemas is also the first step to *versioning* them. As a f
 * **Features** are all additions and enhancements that do not affect the validity of existing documents.
 * **Fixes** are small improvements like correcting typos in schema descriptions.
 
-In the above example, the schema specification for the document has its own version, `1.0.0`, which will be updated as the schema evolves. With versioning in place on the document level it is only a small step to creating a schema manifest that bundles and specifies the document versions that make up a schema version. To be concrete, we could use a good old `package.json` to specify that user, address, and todo-item documents are the constitutive parts of the database schema for an examplary todo application.
+In the above example, the schema specification for the document has its own version, `1.0.0`, which will be updated as the schema evolves. With versioning in place on the document level it is only a small step to creating a schema manifest that bundles and specifies the document versions that make up a schema version. To be concrete, we could use a good old `package.json` to specify that user, address, and todo item documents are the constitutive parts of the database schema for an examplary todo application.
 
 ```json
 {
@@ -230,7 +230,7 @@ In the above example, the schema specification for the document has its own vers
 }
 ```
 
-To sum up this discussion, introducing format-requirements on schemaless databases opens up a space between purely implicit schemas and rigidly explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions. This allows us to pick the sweet spot between data consistency and flexibility that we see fit for our projects. Storing the schema version of each document in the document itself paves the way for implementing schema migrations, which we will now turn our attention to.
+To sum up this discussion, introducing format-requirements to schemaless databases opens up a space between purely implicit schemas and rigidly explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions. This allows us to pick the sweet spot between data consistency and flexibility that we see fit for our projects. Storing the schema version of each document in the document itself paves the way for implementing schema migrations, which we will now turn our attention to.
 
 
 ## If it ain't broke, don't fix it
@@ -239,15 +239,15 @@ There are times when updates to a data schema do not endanger the functionality 
 
 ### Setting the stage: A toy problem
 
-While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of software applications, the todo app. A simple todo app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a done-flag. None of this would make you sit down and write a full article about different strategies for how to accommodate this information. But things get a lot more interesting once we agree to meet a few additional requirements:
+While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of software applications, the todo app. A simple todo app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a 'done' flag. None of this would make you sit down and write a full article about different strategies for how to accommodate this information in your database. But things get a lot more interesting once we agree to meet a few additional requirements:
 
-1. Users should be able to edit their todos even when their internet connection is unstable or down and the application should synchronize all changes once it reconnects. In other words: the app must be **offline-capable** (what exactly this means will become clearer as we go along).
+1. Users should be able to edit their todos even when their internet connection is unstable or down, and the application should synchronize all changes once it reconnects. In other words: the app should be **offline-capable** (what exactly this means will become clearer as we go along).
 2. The application development should be **agile**, meaning that we want to support frequent changes to all aspects of the system, including the data schema.
 3. Users should be able to use the todo app on **multiple clients**, for instance as a web service and as an iPhone app, with potentially different versions of the software running on different clients.
 
-These requirements will eventually lead us to think about distributed migrations. Of course, this is all way ahead. For now we just want you to know that a tiny todo app can cause a whole lot of trouble further down the road. But as we said this section is about starting simple, so let's start with a simple setup for a simple todo app and take on new migration challenges as we go along.
+These requirements will eventually lead us to think about distributed migrations. Of course, this is all way ahead. For now we just want you to know that a tiny todo app can cause a whole lot of trouble further down the road. But this section is about starting simple, so let's start with a simple setup for a simple todo app and take on new challenges as we go along.
 
-In the simplest of todo app scenarios, we want to enable a user to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a web app to provide a nice interface, a server to deliver that application, a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This is a common practice in the CouchDB world that ties in well with the fact that the CouchDB permissions-management is modeled on a per-database basis. It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases. Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find out that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect (unlike when you run out of space with your relational database).
+In the simplest of todo app scenarios, we want to enable a user to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a web app to provide a nice interface, a server to deliver that application, a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This is a common practice in the CouchDB world that ties in well with the fact that CouchDB permissions-management is modeled on a per-database basis. It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases. Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect - unlike when you run out of space with your relational database (though, to be fair, management may not be as happy, because operating a CouchDB cluster at scale may become a somewhat costly affair).
 
 For now, this piecemeal approach of worrying about one user and one database at a time simplifies our problem. To complete the first step and bring version one of our todo app to the market, all there is to do as far as the schema is concerned is to decide how a single todo item is supposed to look. And since we wanted to start simple, and since the *sine qua non* of a todo item is basically just a title and a flag, here's an example of the first, launch-ready version of a valid todo item document to be stored in a user's CouchDB that also adheres to the schema we specified in the last part:
 
@@ -272,9 +272,8 @@ I want to mark a todo as important
 so that I can find it easier.
 ```
 
-Obviously the data schema will need some enhancements in order to store that new information. In particular, we will want to add an `isImportant` flag to each todo-item. This change is rather unobtrusive because it leaves already existing todo items intact: since existing documents will not have the `isImportant` attribute, we can simply treat them as not important by default. All we have to do is make sure the app will be able to handle missing `isImportant` flags.
+Obviously the data schema will need some enhancements in order to store that new information. In particular, we will want to add an `isImportant` flag to each todo item. This change is rather unobtrusive because it leaves already existing todo items intact: since existing documents will not have the `isImportant` attribute, we can simply treat them as not important by default. All we have to do is make sure that new version of the app will be able to handle missing `isImportant` flags.
 
-As a side node, we'd like to briefly mention that this approach will only work if old apps do not delete the new `isImportant` attributes. More generally, applications should simply ignore attributes they don't know and persist them along with the data they care about. This way, other applications have the option to use the same schema and only add the attributes they need to provide additional functionality.
 
 This change was not too hard to implement. A second request that many users have made is the ability to change the color theme of their app:
 
@@ -284,7 +283,7 @@ I want to choose between different color themes
 so that I can express myself by personalizing my tools.
 ```
 
-Obviously, this feature has no implications for the todo items. We decide to introduce a new document type, a `settings`-document, that will store the color information and perhaps other general requirements that will come up in the future. Since we only want one global settings document, we can set the `_id` to something simple.
+Obviously, this feature has no direct implications for structure of todo items. We decide to introduce a new document type, a `settings`-document, that will store the color information and perhaps other general preferences that will come up in the future. Since we only want one global settings document, we can set the `_id` to something simple.
 
 ```json
 {
@@ -295,64 +294,54 @@ Obviously, this feature has no implications for the todo items. We decide to int
 }
 ```
 
-As with the introduction of an `isImportant` property, the new settings document will not cause existing apps to break. Instead, we can use this document to enhance the experience for users of the new app version. If there is no settings document, the application can simply use the default color that already exists. And if an older app does not know how to deal with settings-documents, it may safely ignore it. More generally, we think it is good practice to whitelist the necessary documents at the access level, in particular in CouchDB views, so that new documents will not modify existing behavior.
+As with the introduction of an `isImportant` property, the new settings document is unobtrusive in the sense that is not break existing applications. We could even create those new documents before the web app is ready to work with them. In general, creating documents with unknown types should not affect applications. For CouchDB, which relies heavily on views to retrieve data, this behavior can be achieved by *whitelisting* documents at the access level. In other words: when building up a view, confirm for each document that it's type is known, and ignore it otherwise. This way, new document types can be added without affecting existing behavior.
+
 
 So far we have amended the todo item schema and introduced a new document type. Both operations are non-breaking feature changes to our data schema according to semantic versioning. But now let's look at yet another feature request that will have a deeper impact on our data format:
 
 ```cucumber
 As a web app user
-I want to assign one of many states (`active`, `blocked`, `done`, ...) to a todo item
-so that I can have fine-grained control over its progress.
+I want to assign each todo item to a group
+so that I can isolate tasks that belong together in order to be more focussed
 ```
 
-We already have the `isDone` property in place that keeps track of an item's progress. This progress information will have to be stored in a different property now, call it `status`. You might be tempted to simply replace one field with another, which would lead to documents like the following:
+There is a straight-forward and time-proven way to solve a grouping task like this: *one-to-many associations*. We can create a document for each group and then link todo items to groups by storing a group identifier along with each todo item. In relational database design this is identifier is known as a *foreign key*. Before looking at the schema implications of this approach, we would like to add a more general note on associations in document databases because we have seen how this topic can trip up people new to the technology.
+
+In *relational database* architectures, associations between relations are typically established via *foreign keys* as outlined above. This pattern is so common that people sometimes believe it actually defines what a relational database is in the first place and they are surprised to see it appear in other places as well: "How can there be foreign keys in CouchDB documents? I thought it's not a relational database!" But associations are not what makes relational databases relational – *relations* are. A [relation](https://en.wikipedia.org/wiki/Relation_(database)) is a set of tuples of values with pre-defined types. That's all. There are operations like *selections* and *joins* defined on these relations (cf. [relational algebra](https://en.wikipedia.org/wiki/Relational_algebra)) that enable the complex queries and powerful query optimizations we all know and love. Associations play an important role in those operations, but the general concept goes far beyond relational databases themselves. Linking entities by their identifier is a very versatile strategy of data design, as we shall see below.
+
+To prepare the `todo-item` and `group` association we first need to define `group` documents. Since we don't have any other requirements yet, let's simply give each group a name. Here's an examplary `group` document for illustration purposes, so we are all on the same page:
 
 ```json
 {
-  "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5",
-  "schema": "todo-item",
-  "version": 2,
-  "title": "change the world",
-  "isImportant": true,
-  "status": "active",
-  "createdAt": "2017-10-15T00:00:00.000Z"
-}
-```
-
-```
-!!!
-rewrite this: first general splitting-strategy, then this particular example
-  - avoid conflicts
-  - keep data together that belongs together
-```
-
-This is a valid strategy, but we can do better. Up to this point, a todo item has been a rather coherent set of attributes. Yes, a title might have changed, people were able to mark todos as important and at some point in time many of the items would have been marked as done. In all those cases the document would have had to be updated. However, these changes can be expected to be relatively infrequent. In contrast, we're now introducing the concept of a multi-valued status that may change many times across the lifetime of a todo item. It would be great if we didn't have to update the whole document every time someone changes the status. This is why we propose to split the document in two, have a todo item document and save the status separately in a new document type. With these changes, the remaining core todo item might look like this:
-
-```json
-{
-  "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5",
-  "schema": "todo-item",
-  "version": 2,
-  "title": "change the world",
-  "isImportant": true,
-  "createdAt": "2017-10-15T00:00:00.000Z"
-}
-```
-
-And this might be the corresponding status document:
-
-```json
-{
-  "_id": "todo-item:ce2f71ee7db9d6decfe459ca9d000df5:status",
-  "schema": "todo-item-status",
+  "_id": "group:e302f183a96194f7d19dce0eaf5e3cf8",
+  "schema": "group",
   "version": 1,
-  "status": "active"
+  "name": "Things I also want to do"
 }
 ```
 
-Note how the association of status and todo item is established via the `_id` attribute that is not just used to determine the document type. Splitting the document now enables us to group attributes that commonly change together. Here is not the place to get into a detailed discussion of data design, but feel free to take a look at the [couchdb-best-practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines if this discussion got you interested.
+In order to associate a todo item with a group, we can use the group document's id, which can be found in its `_id`-attribute. This way, a corresponding todo item could look like this:
 
-At this point we have some idea for how to change the data schema in order to react to the latest feature request. We would like to release a new version of the web app that allows users to set different progress states for their items. But wait! What about the items that have been created in the past? The previous approach does not seem to work anymore: we cannot simply choose some sensible defaults and assume that old documents are still valid. Instead we have to find an explicit way to map the old `isDone` values to the new `status`, in other words: we need a data migration!
+```json
+{
+  "_id": "todo-item:4d3956b34778d92c676e3a487dad73fe",
+  "schema": "todo-item",
+  "version": 2,
+  "title": "change the world",
+  "isImportant": "true",
+  "isDone": false,
+  "goupId": "e302f183a96194f7d19dce0eaf5e3cf8",
+  "createdAt": "2017-11-14T00:00:00.000Z"
+}
+```
+
+The `groupId` attribute clearly establishes the association of the todo item with the group above. It is also easy to see how multiple todo items could belong into this group if each of them specifies the same group id.
+
+After talking with developers about the direction that application development should take in the future we decide that we do not want to have documents without group id in the system. Every todo item *must* belong in exactly one group. To enforce this, we *require* the `groupId` attribute to be defined in every todo item document. This will allow us to *validate* the requirement and prevent us from storing documents without a group.
+
+We now have a good idea about how to adapt the data schema in order to react to the latest feature requests. We have even found a way to make developers happy by enforcing their expectations through schema validations. At this point we would like to release a new version of the web app that allows users to sort their todo items into groups.
+
+But wait! What about the todo items that have been created in the past? Those documents are now *invalid* because they do not specify a group id. When our new apps encounter such an older document they will not know what to do with it. It looks like we will have to change existing documents somehow. We could, for instance, associate them with some 'default' group. But whatever strategy we pick, there's no way to sugarcoat it: this is a *breaking change* to our schema and we need a data migration!
 
 
 ### Traditional server-side migration
@@ -369,20 +358,25 @@ We are now at a point where a new version of an application may be confronted wi
   </figcaption>
 </figure>
 
-Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of handling migrations provides a very straight forward example of this approach. In Rails we would define a migration that formalizes the schema change (prepare the database to store the new `status`, move existing `isDone` information over into the `status`, remove the `isDone` field from the todo item table). We would then take the system down, run the migration (the famous `rails db:migrate`, formerly `rake db:migrate`) and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped into a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
+Since we have stored all our data in one central database, it will be easy enough for us to access all existing todo items and update them to adhere to the new schema. Ruby on Rails's way of handling migrations provides a very straight forward example of this approach. In Rails we would define a migration that formalizes the schema change (prepare the database to store the new `status`, move existing `isDone` information over into the `status`, remove the `isDone` field from the todo item table). We would then take the system down, run the migration (the famous `rails db:migrate`, formerly `rake db:migrate`) and hand out the updated application once the database is back up. If anything goes wrong during this process, there will be a rollback because the migration is wrapped in a transaction. During the process we will of course incur some downtime, but on the plus side we always have consistent and up to date documents and everyone will get the latest version of our application.
 
-This same strategy works with CouchDB as well. Let us roughly sketch out the main steps to go through when performing a **traditional server-side migration on CouchDB**. Here's our recipe: 
+This same strategy works with CouchDB as well. Let us roughly sketch out the main steps to go through when performing a **traditional server-side migration on CouchDB**. Here's our recipe:
 
-1. First you need to set up a new empty cluster in case you want to revert or abort the migration at some point.
-2. Then switch to maintenance mode.
+```
+1. Set up a new, empty cluster (in case you want to revert or abort the migration at some point).
+2. Switch to maintenance mode.
 3. Perform a replication of all data from the old to the new cluster.
 4. Now run a migration script to update data on the new cluster.
-5. If a check verifies that migration was successful, switch to the new cluster and switch off maintenance mode. Done.
-6. Rollback migration by deleting the new cluster if necessary.
+
+If a check verifies that migration was successful:
+  5. Switch to the new cluster and switch off maintenance mode. Done.
+Else:
+  5. Rollback migration by deleting the new cluster.
+```
 
 [Figure 1](#figure-1) illustrates the traditional migration strategy. It shows how both the application and the documents are updated together in a single step. White documents can be handled by the white version of the app while the green app needs green documents. A special case is the two-colored document. There might be documents that do not need to change during a migration and that can be handled by multiple versions of the client. Think of the settings document we have added previously. Even if we have to change the structure of todo items this does not mean we have to change how the settings document looks.
 
-This migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we bring in some of the more challenging requirements we have so far ignored to keep our setup simple.
+This migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we bring in some of the more challenging requirements we have omitted so far.
 
 
 ## Fail fast, fail often
@@ -421,7 +415,7 @@ I want to use the todo app on my iPhone and through a web interface
 so that I can fit my workflow to my life and not the other way round.
 ```
 
-If we provide users not only with a web app but also with native clients then updating the data schema to a newer version comes with certain additional challenges. Imagine someone is using our todo app both through the web interface and on their phone. When we release a new version of the software that includes a breaking change to the data schema the web app gets updated immediately once the page is reloaded. But the app on the phone may have to be updated manually, and this could happen now, or soon, or someday, or - never. In this situation we will have multiple clients with multiple versions in the system.
+If we provide users not only with a web app but also with native clients then updating the data schema to a newer version comes with certain additional challenges. Imagine someone is using our todo app both through the web interface and on their phone. When we release a new version of the software that includes a breaking change to the data schema the web app gets updated immediately once the page is reloaded. But the app on the phone may have to be updated manually, and this could happen now, or soon, or someday, or – never. In this situation we will have multiple clients with multiple application versions in the system.
 
 In this more complex scenario we are now confronted with three formidable challenges: we want to support multiple clients running multiple app versions, we want them not to break when the network connection is unstable, and we want to develop our software incrementally and stay agile, pivoting and releasing new versions in response to user demand. How could this ever work, you wonder? Let's wonder together.
 
@@ -431,7 +425,10 @@ Why can't we just reuse the traditional migration strategy that has worked well 
 
 This approach fails for a couple of reasons. Let's first consider the case where a web app may be offline thanks to our latest enhancements. Here's a chain of events that breaks the system: Haneen is using the web app, version one, in her browser right now. Because she is currently travelling through rural Germany she is editing todos in offline mode. She has just created a todo to pluck some flowers for her friend's birthday. Meanwhile we release a new version of the app and migrate all existing data on the server-side database. Back at home, Haneen's app synchronizes the recent changes. The updated documents get replicated from the server-side CouchDB to her in-browser database. This may take a moment but we can assume we find a way to verify the update is complete before allowing the app to resume. Eventually the web app, which has all the latest features now, is ready to work. But what about the flowers-todo? It was created offline according to the previous version of the data schema. It still has the simple `isDone` flag instead of the new fancy `status`. The new version of the app does not know how to deal with this old document. It might even break. Utter disaster.
 
-This problem on its own can be dealt with, and the solution has two parts. First we need to make sure that the new app does not break when it encounters older documents. This should not be too hard. It basically has to ignore the `isDone`-flag in this case. And the fact that a `status`-document is missing should cause no troubles for the application anyways because this could also happen under normal circumstances where documents simply need some time to be synchronized. The second part of the solution is a backend-service that continuously updates older documents that might be coming in. In our example, the old flower-todo will be replicated to the server at some point. The service, which would look at incoming documents, would notice that the version is outdated and perform a *post hoc* migration. Then the new flower-todo is synced back to the clients. Problem solved.
+This problem on its own can be dealt with, and the solution has two parts.
+
+1. First we need to make sure that the new app does not break when it encounters older documents. This should not be too hard. It basically has to ignore the `isDone`-flag in this case. And the fact that a `status`-document is missing should cause no troubles for the application anyways because this could also happen under normal circumstances where documents simply need some time to be synchronized.
+2. The second part of the solution is a backend-service that continuously updates older documents that might be coming in. In our example, the old flower-todo will be replicated to the server at some point. The service, which would look at incoming documents, would notice that the version is outdated and perform a *post hoc* migration. Then the new flower-todo is synced back to the clients. Problem solved.
 
 As this discussion shows, there are times when you can get away with a traditional server-side migration by amending it with a continuous update of potentially outdated documents. If you just want to provide an offline capable web app, this strategy may be just what you need. Of course, our scenario is more complex because we want to provide native clients as well. This comes with additional difficulties.
 
@@ -652,7 +649,7 @@ TBD
 
 [note: implement this fro the start!]
 
-This is probably the biggest concern with live migrations but also the hardest to work through so we will discuss this last. It means that an old app has to be shut down until it is updated. For a simple webapp this may be as easy as requiring a page reload, for a desktop app it may require a restart, but for iOS or Android apps it may require users to visit some appstore and go through a whole procedure for upgrading an application. And what if product decides that updates should be paid for by device? Do we shut down all older apps once someone upgrades a single device?
+This is probably the biggest concern with live migrations but also the hardest to work through so we will discuss this last. It means that an old app has to be shut down until it is updated. For a simple web app this may be as easy as requiring a page reload, for a desktop app it may require a restart, but for iOS or Android apps it may require users to visit some appstore and go through a whole procedure for upgrading an application. And what if product decides that updates should be paid for by device? Do we shut down all older apps once someone upgrades a single device?
 
 These are serious concerns that arise because we are unable to meet two requirements at the same time:
 
@@ -672,6 +669,9 @@ Sounds complicated? Let's take a look at the todo app. Say someone just wrote a 
 As a general migration strategy, this approach looks very promising indeed. It would allow us to write adapters for each API version that could migrate documents on the fly, up and down. However, we cannot pursue this path further at this point because CouchDB does not provide any hooks that we could use to insert our adapters into the data-flow. This would have serious consequences for many aspects of the system including the replication mechanism. Since this is not an option, let's not have this discussion right now and instead focus on what is feasible.
 
 
+##### learning: ignore unknown attributes
+
+As a side node, we'd like to briefly mention that this approach will only work if old apps do not delete the new `isImportant` attributes. If we only have a simple web app this is of course not a concern because there will be no old apps around. But this will change at some point and we would like to mention the more general lesson here while we're at this point: applications should simply ignore attributes they don't know and persist them along with the data they care about. This way, other applications have the option to use the same schema and only add the attributes they need to provide additional functionality.
 
 
 ## Summary and Evaluation

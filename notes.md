@@ -86,6 +86,9 @@ At this point we have gotten a bit ahead of ourselves and are already discussing
 - Be careful, though, not to... vs Be careful though, not to...
 
 
+- further points to discuss
+  - we say: "the app should be **offline-capable** (what exactly this means will become clearer as we go along)" - do we actually discuss this anywhere?
+
 
 - Fail fast, fail often - not mentioned so far:
   - if partially synced or ignored lots of data will be missing
@@ -97,9 +100,13 @@ At this point we have gotten a bit ahead of ourselves and are already discussing
 
 Is there a reason why the example specifies the version only with an integer after we have gone through some efforts to establish *semantic versioning* for the data schema before? Why not use the full semantic version and have `_id`-suffixes like `:v:1.2.3`? 
 
-
-
+## relation vs relation
+https://en.wikipedia.org/wiki/Relation_(database)
 
 ## materials last chapter
 
 
+- lessons learned
+  - make your schema explicit
+  - applications should simply ignore attributes they don’t know and persist them along with the data they care about
+  - whitelist the necessary documents at the access level, in particular in CouchDB views, so that new documents will not modify existing behavior
