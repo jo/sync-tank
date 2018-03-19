@@ -259,3 +259,111 @@ But for now it's time to move on to the second part of our transformers where th
 - conflict generation, inter-schema conflicts
 ```
 
+
+
+
+```
+Move this content to Appendix
+  -> better approach: target-oriented
+    -> problem: what happens when an *old version* is already there that is not yet updated,
+        e.g. there is already a status-1 but it is not up to date...
+- the registry lists all docs that are needed to create the *target*-version
+- have one transformer per version-version pair and type
+  -> complexity-analysis (rough)
+    - naive:
+      - (n-1)^2 version combinations
+      - t document-types
+      => O(t * n^2) transformers, e.g. with 5 versions and 20 types => 500 transformers!
+```
+
+
+```
+- transactions are on doc level
+- downsides:
+  - not easy to drop (purge) old versions
+```
+
+
+
+
+## Older stuff from before, waiting for reuse...
+
+#### Functionality duplication leads to unnecessary code
+
+The first problem to address is one of complexity and maintainability. A bit of accounting can help us get the discussion started. Say we start off with a single document type that is in version `v1`. We now update the schema to `v2`, so the app will need an adapter to deal with the older `v1` documents. After the next update to `v3` the new app will now need two adapters: one to deal with `v2` documents and one to deal with `v1` documents that may also still be around. In general, every app that has ever existed in the system may have left documents in the corresponding old versions around. Since we can never be sure that there are no ancient schema versions around we will have to provide `n - 1` adapters for an app that uses data schema version `n`.
+But there's more. Since clients can be offline or not get updated, older versions of clients need additional adapters to migrate documents up to their specific version and those add up to what we have to maintain. To round off this part of the analysis, let's just say that all app versions that have ever existed may still be used somewhere, and accordingly all document schema versions that have ever existed will need to be supported. If the current schema version number is `n` we would need to provide
+
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">(</mo>
+  <mi>n</mi>
+  <mo>&#x2212;<!-- − --></mo>
+  <mn>1</mn>
+  <mo stretchy="false">)</mo>
+  <mo>+</mo>
+  <mo stretchy="false">(</mo>
+  <mi>n</mi>
+  <mo>&#x2212;<!-- − --></mo>
+  <mn>2</mn>
+  <mo stretchy="false">)</mo>
+  <mo>+</mo>
+  <mo>.</mo>
+  <mo>.</mo>
+  <mo>.</mo>
+  <mo>+</mo>
+  <mn>2</mn>
+  <mo>+</mo>
+  <mn>1</mn>
+  <mo>=</mo>
+  <munderover>
+    <mo>&#x2211;<!-- ∑ --></mo>
+    <mrow class="MJX-TeXAtom-ORD">
+      <mi>i</mi>
+      <mo>=</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow class="MJX-TeXAtom-ORD">
+      <mi>n</mi>
+      <mo>&#x2212;<!-- − --></mo>
+      <mn>1</mn>
+    </mrow>
+  </munderover>
+  <mi>i</mi>
+  <mo>=</mo>
+  <mfrac>
+    <mrow>
+      <mi>n</mi>
+      <mo stretchy="false">(</mo>
+      <mi>n</mi>
+      <mo>&#x2212;<!-- − --></mo>
+      <mn>1</mn>
+      <mo stretchy="false">)</mo>
+    </mrow>
+    <mn>2</mn>
+  </mfrac>
+</math>
+
+adapters.
+
+We're not done yet. So far, we have just looked at a single document type, but our schema can accommodate dozens of them. In our example we just had three types (`todo-item`, `status`, `settings`) but to be more general let's say we have `t` different document types. If we introduce a new version for every type with every update we need \(\frac{t n (n - 1)}{2}\) adapters in total or, amongst friends, $ \mathcal{O}(t n^2) $ adapters. This can quickly get out of hand and we have to look at optimizations and compromises.
+
+#### No legacy-app dropping and no purging of old documents
+
+TBD
+
+
+#### Old apps have to force users to do updates
+
+[note: implement this fro the start!]
+
+This is probably the biggest concern with live migrations but also the hardest to work through so we will discuss this last. It means that an old app has to be shut down until it is updated. For a simple web app this may be as easy as requiring a page reload, for a desktop app it may require a restart, but for iOS or Android apps it may require users to visit some appstore and go through a whole procedure for upgrading an application. And what if product decides that updates should be paid for by device? Do we shut down all older apps once someone upgrades a single device?
+
+These are serious concerns that arise because we are unable to meet two requirements at the same time:
+
+1. Make sure newer documents do not end up in older applications' databases. If this is violated, the old app will not know how to handle the new documents and may crash.
+2. Make sure documents are synchronized with all relevant associated documents. If this is violated, there may be inconsistent data. Imagine if we had just a status, but the associated todo item was missing, or if we had an address without a user, or a text message without a contact.
+
+It would be possible to enforce the first point on its own. CouchDB provides a mechanism to synchronize only a filtered set of all data (that's called a [filtered replication](...)), and we could use this to exclude data that is too recent to get to clients that are too old. But this would conflict with the second point. If we update only the todo items but not the status then a filtered replication would sync the status documents but filter out the corresponding todo items. This way, a database could end up with status documents without a todo item. The only way to work around this problem is to increase the schema version of *every* document once a single document changes. In a larger setting with dozens or hundreds of document types in the database this would lead to a lot of duplication.
+
+##### Global Changes feed
+How can one implement continuous server-side migrations on CouchDB you ask? Here's a sketch: First there must be a way to look at incoming documents so they can be updated in the first place. CouchDB provides such an option through the `_changes`-endpoint that allows us to keep track of every event that happens in a database. It is not a bad idea to bundle the different `_changes`-endpoints of all user databases together into a **global changes feed**. A backend service could then listen to this feed to see if any outdated document comes in and perform transformations as needed. After the updated document has been saved, there is no need for the old version to be around, so it can safely be deleted.
+
