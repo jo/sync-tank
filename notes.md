@@ -110,3 +110,42 @@ https://en.wikipedia.org/wiki/Relation_(database)
   - make your schema explicit
   - applications should simply ignore attributes they don’t know and persist them along with the data they care about
   - whitelist the necessary documents at the access level, in particular in CouchDB views, so that new documents will not modify existing behavior
+
+
+##### Versioned API
+
+Instead of leaving old apps high and dry we may very well decide to support them at least for a while. And a common approach to implement multi-version support is through a versioned API. Imagine older clients could get older documents through the `/V1/`-API while newer clients could just talk to the `/V2/`-version. To make this possible we could still keep the CouchDB documents up to the latest version but provide server-side adapters that transform documents to the requested format.
+
+Sounds complicated? Let's take a look at the todo app. Say someone just wrote a `todo-item-1` document to the local database of their web app. But the system has already moved on to supporting `todo-item-2` documents. Luckily, the old app uses the `/V1/`-endpoint when synchronizing `todo-item-1` documents. Behind this endpoint there is an adapter we provided that migrates the document up to the newer version and stores it. The newer clients are save! And when the old wep app wants to get the latest documents it tries to get them, of course, through the `/V1/`-endpoint. Once again, an adapter intercepts the syncing-process and migrates newer documents down to version one. The wep app is save!
+
+As a general migration strategy, this approach looks very promising indeed. It would allow us to write adapters for each API version that could migrate documents on the fly, up and down. However, we cannot pursue this path further at this point because CouchDB does not provide any hooks that we could use to insert our adapters into the data-flow. This would have serious consequences for many aspects of the system including the replication mechanism. Since this is not an option, let's not have this discussion right now and instead focus on what is feasible.
+
+
+#### Breaking changes
+
+When we talked about schema specifications and validations, we suggested to go with semantic versioning when putting the data schema under version control. We also said that schema changes would have be *interpreted* in order to apply semantic versioning to them: What counts as a feature? And when is a change breaking? We didn't say much about this point back then because we did not have the vocabulary to discuss the topic adequately. But we do now. So let's take a look.
+
+Put simply, a *breaking change* happens every time you modify one thing and another thing stops to work. Maybe you changed the parameters of an API and now the callers no longer know what to do with it. Or maybe you removed those unprofessional side effects from a function but another part of the program relied upon them. The situation is no different with schema changes. For instance, once you require documents to have a certain property, older version of these documents may become invalid and break newer clients.
+
+There are several types of schema changes and we have encountered a few of them in our examples: adding new document types, adding and removing *optional* properties, and adding or removing *required* properties. In general, we can think of specifications to become *stronger* or *weaker.* Making specifications stronger means we are more demanding as to the specific format of documents, and this can happen in a number of ways: (1) by adding a new required property to a document, (2) by making existing optional properties required, and (3) by restricting the format of properties, e.g. removing available options from Enums or restricting number ranges.
+
+* Making specifications stronger *always* introduces a breaking change.
+
+But what about weaker specifications? *Prima facie* weakening specifications should only introduce new features ("we can now also store strings longer than 20 characters"), but this is not true for every context. If we are planning to implement a *multi-version* migration that allows us to support multiple client and schema versions in parallel we have to think *bi-directional*. It is no longer enough to make sure that newer clients can work with older documents, but also that older clients can handle newer documents. In this scenario, a weaker specification can render a new document unusable for an older app ("I cannot deal with strings longer than 20 characters").
+
+
+
+#### The matrix
+
+|                      | Trans&shy;actional Migra&shy;tion | Live Migra&shy;tion | Per Ver&shy;sion Data&shy;bases | Per Ver&shy;sion Docu&shy;ments |
+| -------------------- | :-------------------------------: | :-----------------: | :-----------------------------: | :-----------------------------: |
+| Drop Version Support | ***                               | -                   | ***                             | **                              |
+| Multiple Versions    | -                                 | **                  | **                              | ***                             |
+| Legacy App Support   | -                                 | -                   | ***                             | ***                             |
+| Distributed Systems  | -                                 | *                   | ***                             | ***                             |
+| Seamless Migration   | -                                 | -                   | *                               | ***                             |
+| Deduplication        | ***                               | ***                 | -                               | **                              |
+| Conflict Safety      | ***                               | ***                 | ***                             | ***                             |
+| Purge Version Data   | ***                               | -                   | ***                             | *                               |
+| Simplicity           | ***                               | *                   | **                              | ***                             |
+

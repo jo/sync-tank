@@ -95,7 +95,7 @@ If there was a network connection between Andi's devices, any changes he'd make 
 }
 ```
 
-In both cases, the revision number is increased to 2 and the name attribute has been changed, of course. Now if both devices are connected CouchDB will try to bring all data to the same state, but it is inherently unclear which one of the changes should determine the final version of the language document. Even if it was feasible to compare document write times accross different systems (which is often very hard to accomplish) and then choose a final document on a last-write-wins basis, it is not clear that this manner of handling conflicts is always the preferred way. This is why CouchDB will by default pick some version as winning - deterministically based on the revision id and number - and will reference conflicting versions in the document. This way, no information is lost and conflicts can be resolved more elaborately if necessary. For completeness, here is the final document that CouchDB automatically creates after default handling of the conflict.
+In both cases, the revision number is increased to two and the name attribute has been changed, of course. Now if both devices are connected CouchDB will try to bring all data to the same state, but it is inherently unclear which one of the changes should determine the final version of the language document. Even if it was feasible to compare document write times accross different systems (which is often very hard to accomplish) and then choose a final document on a last-write-wins basis, it is not clear that this manner of handling conflicts is always the preferred way. This is why CouchDB will by default pick some version as winning - deterministically based on the revision id and number - and will reference conflicting versions in the document. This way, no information is lost and conflicts can be resolved more elaborately if necessary. For completeness, here is the final document that CouchDB automatically creates after default handling of the conflict.
 
 ```json
 {
@@ -213,9 +213,11 @@ The example features `schema` and `version` attributes on the document with valu
 
 Being explicit about schemas is also the first step to *versioning* them. As a final practical recommendation we suggest to use [semantic versioning](http://semver.org/), properly interpreted to work well with data schemas, in order to keep track of how a schema evolves. We use semantic versioning to determine the version of the *database schema*, which is the collection of all *individual document schemas*. This way, it is easy to understand the type and severity of schema changes:
 
-* **Breaking changes** happen every time old documents do not validate against a new schema anymore.
-* **Features** are all additions and enhancements that do not affect the validity of existing documents.
+* **Breaking changes** happen every time a schema update breaks some part of the system.
+* **Features** are all enhancements that do not stop existing applications from working or render existing documents unusable.
 * **Fixes** are small improvements like correcting typos in schema descriptions.
+
+Determining which schema changes count as features or as breaking changes is not as simple as it may seem at first glance. There is one general rule that is straight forward to establish: making schema specifications stronger *always* introduces a breaking change. The opposite is not always true, though. Weaker specification may introduce a breaking change as well - if we want to support older versions of an application. If we weaken a specification it is possible that older apps cannot work with newer documents because they will miss a formerly required attribute or don't know what to do with this new Enum value we allowed. In the end, detecting breaking changes boils down to asking the simple question: which applications do I want to support and how does the change I'm about to introduce affect them?
 
 In the above example, the schema specification for the document has its own version, `1.0.0`, which will be updated as the schema evolves. With versioning in place on the document level it is only a small step to creating a schema manifest that bundles and specifies the document versions that make up a schema version. To be concrete, we could use a good old `package.json` to specify that user, address, and todo item documents are the constitutive parts of the database schema for an examplary todo application.
 
@@ -534,7 +536,7 @@ It is time to approach this issue in an orderly fashion. To this end, we will pr
 
 ### Where is data being stored?
 
-Up to this point, we have only talked about setups where one user has a single database for all their data. In our running example, this database has one server-side replica and multiple replicas on the client devices, but it is still a *single* database. In the migration strategies we have seen so far, there existed only a *single* version of a document at a time as well. When it came to dealing with offline-capabable clients and maintaining multiple app versions, the traditional approaches failed exactly because there were document versions missing that some applications still depended upon.
+Up to this point, we have only talked about setups where one user has a single database for all their data. In our running example, this database has one server-side replica and multiple replicas on the client devices, but it is still a *single* database. In the migration strategies we have seen so far, there existed only a *single* version of a document at a time as well. When it came to dealing with offline-capable clients and maintaining multiple app versions, the traditional approaches failed exactly because there were document versions missing that some applications still depended upon.
 
 Maintaining multiple document versions in parallel can be achieved in two ways. First, multiple document versions can be stored in a *single* database *simultaneously*. The fact that the `_id`-attribute of a document must be unique means that we would have to adapt this property accordingly, for instance by keeping track of the version in the `_id` itself. As an example, our todo item documents could have `_ids` like `todo-item@1:ce2f71ee7db9d6decfe459ca9d000df5` and `todo-item@2:ce2f71ee7db9d6decfe459ca9d000df5` that carry information about the respective schema version. If we manange `_id`s carefully, it is possible to work with multiple document versions in a single database. Alternatively, each version of the data schema could have its own database. Instead of the standard *couch-per-user* approach this would imply that we set up multiple *couches-per-user*, one for each schema version.
 
@@ -562,7 +564,7 @@ A major difference between the two approaches is that lazy migrations have to in
 
 As a third and last dimension of a useful taxonomy we suggest to take into account whether migrations are performed on the server-side database or on the client. Traditional migrations are only run on the server, but we have already started to consider alternatives in the previous discussions.
 
-Running migrations on client-side databases comes with additional difficulties. For instance, it will be harder to fix bugs and maintain code that is distributed across multiple user devices. Performing migrations on a single server that you have direct access to makes migrations a lot easier to test, control, and possibly even revert. Additionaly, multiple client applications may be written in a number of different programming languages so that the respective migration code, which can already be challenging to get correct in the first place, would have to be written multiple times in multiple languages. Lastly, the different clients that implement the [Couch replication protocol](http://docs.couchdb.org/en/master/replication/protocol.html) (like CouchDB, PouchDB, Cloudant, etc.) do not generate the same revision ids (there are some plans to unify this behavior, though). Without consistent `_rev`s, creating the same document on multiple clients in parallel could lead to a massive amount of conflicts. This is not to say that running migrations on the client is a bad choice, we just want to caution that it may come with additional baggage.
+Running migrations on client-side databases comes with additional difficulties. For instance, it will be harder to fix bugs and maintain code that is distributed across multiple user devices. Performing migrations on a single server that you have direct access to makes migrations a lot easier to test, control, and possibly even revert. Additionally, multiple client applications may be written in a number of different programming languages so that the respective migration code, which can already be challenging to get correct in the first place, would have to be written multiple times in multiple languages. Lastly, the different clients that implement the [Couch replication protocol](http://docs.couchdb.org/en/master/replication/protocol.html) (like CouchDB, PouchDB, Cloudant, etc.) do not generate the same revision ids (there are some plans to unify this behavior, though). Without consistent `_rev`s, creating the same document on multiple clients in parallel could lead to a massive amount of conflicts. This is not to say that running migrations on the client is a bad choice, we just want to caution that it may come with additional baggage.
 
 To round things off, let us suggest a terminology to work with the distinction we have drawn here:
 
@@ -576,105 +578,50 @@ Even though we cannot discuss these options here we have built up a vocabulary f
 
 ## Developing migration strategies
 
-> The internet is broken - Andi Pieper
+> "The internet is broken" - Andi Pieper
 
-Schema migrations accross distributed systems are hard, and designing migration strategies is challenging for a lot of reasons. We have discussed some of the pitfalls and impasses you might run into, and there are a number of tradoffs to consider as well. In this last section we would like to collect some of the learnings from our discussion and address several open issues to keep in mind when deciding how to proceed.
+Schema migrations across distributed systems are hard, and designing migration strategies is challenging for a lot of reasons. We have discussed some of the pitfalls and impasses you might run into, and there are a number of tradeoffs to consider as well. In this last section we would like to collect some of the learnings from our discussion and address several open issues to keep in mind when deciding how to proceed.
 
 #### Tradeoffs
 
-Every software system is built in a particular context with specific requirements and resources that are limited in one way or another. When designing migration strategies it is important to keep these resources and requirements in mind. We will probably not be able to get the best of all the many worlds, we will not find the one, single, optimal migration strategy because all the different approaches have some merits and some disadvanteges. Instead, we will have to make design decision, and when we do, we want to keep some of the following points in mind.
+Every software system is built in a particular context with specific requirements and resources that are limited in one way or another. When designing migration strategies it is important to keep these resources and requirements in mind. We will probably not be able to get the best of all the many worlds, we will not find the one, single, optimal migration strategy because all the different approaches have some merits and some disadvantages. Instead, we will have to make design decision, and when we do, we want to keep some of the following points in mind.
 
-*Legacy app support.* Single-version migrations can never support clients that require multiple versions of the schema. This point seems almost too obvious to state, but it is crucial to decide from the beginning whether you need to support legacy clients or not. Maybe limited offline capabilities are enough for your project. Or maybe it is better to find a way of enforcing client updates. Keep in mind, though, that if you are planning on dropping old versions at one point, applications need to be equipped with some graceful shutdown or update mechanism *from the very beginning.*
+*Legacy app support.* Single-version migrations can never support clients that require multiple versions of the schema. This point seems almost too obvious to state, but it is crucial to decide from the beginning whether you need to support legacy clients or not. Maybe limited offline capabilities are enough for your project. Or maybe it is better to find a way of enforcing client updates. Keep in mind, though, that if you are planning on dropping old versions at one point, applications need to be equipped with some graceful shutdown or update mechanism *from the very beginning.* This topic is larger than it might appear at first glance. Legacy support can mean different things, for instance that you make sure old apps will not break when data is migrated, even though you might achieve this by ignoring some documents. It can also mean that you migrate data *down* so that older apps can have full access to all the latest information. What legacy support means depends on the respective context.
 
-*Seamless miration processes.* Some of the strategies we have seen, e.g. the *on the fly* adapter migration, do not require any system downtime to run. This can be achieved by updating documents and distributing them accross the system *before* the applications working with them get updated. This works only for *multi-version* migrations, of course.
+*Seamless migration processes.* Some of the strategies we have seen, e.g. the *on the fly* adapter migration, do not require any system downtime to run. This can be achieved by updating documents and distributing them across the system *before* the applications working with them get updated. This works only for *multi-version* migrations, of course. If keeping multiple versions of data helps allows for *zero downtime migrations*, we might even investigate if this strategy could be interesting outside the realm of document databases.
 
-*Simplicity.* Some of the strategies we have seen are appealing because they are a lot easier to implement and maintain than others. If your resources are scarce, you might value simlicity higher than some of the more advanced features that require more elaborate migration processes. For instance, fixing bugs in migration code that is written in multiple languages and has already been shipped to clients which are currently offline can turn out to be a maintenance nightmare.
+*Simplicity.* Some of the strategies we have seen are appealing because they are a lot easier to implement and maintain than others. If your resources are scarce, you might value simplicity higher than some of the more advanced features that require more elaborate migration processes. For instance, fixing bugs in migration code that is written in multiple languages and has already been shipped to clients which are currently offline can turn out to be a maintenance nightmare.
 
-*Deduplication.* Storing documents for data-heavy applications can become expensive. Even more so when there are multiple versions of documents stored in parallel. *Multi-db* migrations in particular will run into this issue because they do not reuse documents accross different versions of the data schema. The whole point of *multi-db* migrations is to have all documents necessary to support some app version in one dedicated database. So there might be multiple versions of the very same document stored on a user's device. On the other hand, it is ridiculouly easy to delete old versions of the data schema: simply delete the corresponding database. This is how the problem of deduplication is related to questions of legacy app support and the purging of obsolete documents.
+*Deduplication.* Storing documents for data-heavy applications can become expensive. Even more so when there are multiple versions of documents stored in parallel. *Multi-db* migrations in particular will run into this issue because they do not reuse documents across different versions of the data schema. The whole point of *multi-db* migrations is to have all documents necessary to support some app version in one dedicated database. So there might be multiple versions of the very same document stored on a user's device. On the other hand, it is ridiculously easy to delete old versions of the data schema: simply delete the corresponding database. This is how the problem of deduplication is related to questions of legacy app support and the purging of obsolete documents.
 
-*Conflict safety*. We have seen how migration processes that update documents in many places, e.g. on multiple clients in parallel, can create conflicts. Depending on your project you might be able to come up with very efficient conflict resolution mechanisms or you decide that the number of occuring conflicts will be managable. But keep in mind that, at leat for CouchDB, larger amounts of unhandled conflicts in a document's history will lead to severe performance penalties.
+*Conflict safety*. We have seen how migration processes that update documents in many places, e.g. on multiple clients in parallel, can create conflicts. Depending on your project you might be able to come up with very efficient conflict resolution mechanisms or you decide that the number of occurring conflicts will be manageable. But keep in mind that, at least for CouchDB, larger amounts of unhandled conflicts in a document's history will lead to severe performance penalties.
 
-#### Breaking changes
+#### Good practices
 
-When we talked about schema specifications and validations, we suggested to go with semantic versioning when putting the data schema under version control. We also said that schema changes would have be *interpreted* in order to apply semantic versioning to them: What counts as a feature? And when is a change breaking? We didn't say much about this point back then because we did not have the vocabulary to discuss the topic adequately. But we do now. So let's take a look.
+Throughout our discussion we have collected a number of recommendations and good practices when working with schemas and document databases in general and CouchDB in particular. Let's remind us of some of these learnings before concluding our discussion.
 
-Put simply, a *breaking change* happens every time you modify one thing and another thing stops to work. Maybe you changed the parameters of an API and now the callers no longer know what to do with it. Or maybe you removed those unprofessional side effects from a function but another part of the program relied upon them. The situation is no different with schema changes. For instance, once you require documents to have a certain property, older version of these documents may become invalid and break newer clients.
+*Make your schema explicit!* We strongly recommend using JSON schema or some related vocabulary to formulate expectations about the form and shape of your data clearly.
 
-There are several types of schema changes and we have encountered a few of them in our examples: adding new document types, adding and removing *optional* properties, and adding or removing *required* properties. In general, we can think of specifications to become *stronger* or *weaker.* Making specifications stronger means we are more demanding as to the specific format of documents, and this can happen in a number of ways: (1) by adding a new required property to a document, (2) by making existing optional properties required, and (3) by restricting the format of properties, e.g. removing available options from Enums or restricting number ranges.
+*Use semantic versioning for your schema.* Knowing whether or not changing the document format breaks existing behavior is crucial when it comes to deciding which documents need to be migrated. However, remember that figuring out which changes are breaking depends on the context and requirements of your project.
 
-* Making specifications stronger *always* introduces a breaking change.
+*Whitelist document types.* Applications should not break when they encounter document types they don't know. This way, you are free to create new types without introducing a breaking change.
 
-But what about weaker specifications? *Prima facie* weakening specifications should only introduce new features ("we can not store also store stings longer than 20 characters"), but this is not true for every context. If we are planning to implement a *multi-version* migration that allows us to support multiple client and schema versions in parallel we have to think *bi-directional*, as it were. It is no longer enough to make sure that newer clients can work with older documents, but also that older clients can handle newer documents. In this scenario, a weaker specification can render a new document unusable for an older app ("I cannot deal with strings longer than 20 characters").
+*Ignore unknown attributes.* For a similar reason, applications should be able to ignore document properties they don't need to know about.
 
+*Prepare for dropping legacy support.* If you plan to drop support of legacy apps at one point, give them a chance to know they are outdated. If old apps know what to do when they are no longer supported gives them a chance to handle the transition more gracefully.
 
+#### Stay in touch
 
+Although we have said what we had to say here, the real work is only just about to begin. Our main goal has been to open up a discussion about a really hard problem, to prepare the ground for exploring different solutions to it, and to illustrate some of the intricacies and complexities of the situation we are confronted with.
 
-=> migration strategy has influence on what is breaking
+From here on out, our task is to design migration strategies for different use scenarios, and to share and discuss them. We are planning to present you an *eager, multi-version, server-side migration* in the near future, which we think is both versatile and maintainable and we are looking forward to having a fruitful exchange about that.
 
-... there are other ways to introduce breaking changes (e.g. require a property to have a different type as before)
+For now, we'd like to thank you cordially for your attention and for following us through some rough terrain. We hope you feel like you've learned something. Should you feel inclined to leave any comments or suggestions, we would be delighted to receive issues and pull-requests to our [project repository](https://github.com/jo/sync-tank).
 
-
-
-
-2. Dropping version support.
-7. Conflict safety.
-8. Maintaining parallel schema versions.
-9. Breaking changes.
-10. Learnings.
+Finally, we'd like to thank [immmr](https://www.immmr.com/), and in particular Marten Schönherr, for giving us some time to explore the issues presented here. We also appreciate the ideas and suggestions we received from the people who have already been part of the discussion and who helped us understand the migration problem better: der und der und der.
 
 
 
+-> Follow us on Github, Twitter
 
-Although it looks like we are about the finish our discussion, the real work is only just about to start. Our main goal has been to open up a discussion about a really hard problem, to prepare the ground for exploring different solutions to it, and to illustrate some of the intricacies and complexities of the situation we are confronted with.
-
-
-
-
-TBD
-
-types of changes: what counts as a breaking change depends on the migration strategy! Unidirectional? Or bidirectional (multi-version)? Think not as up/down anymore but equally valuable versions.
-
-
-- very complicated and extensive setup
-- flexible
-- continuous migrations allow for no downtime deploy
-- also interesting to apply per version document approach to other dbs (SQL) to minimize downtime and component upgrade
-- discuss matrix and why we favor last solution
-- outlook
-- we will create a proof of concept for migrator
-  - already outlined this
-  - shit and I already forgot it :/
-
-
-|                      | Trans&shy;actional Migra&shy;tion | Live Migra&shy;tion | Per Ver&shy;sion Data&shy;bases | Per Ver&shy;sion Docu&shy;ments |
-| -------------------- | :-------------------------------: | :-----------------: | :-----------------------------: | :-----------------------------: |
-| Drop Version Support | ***                               | -                   | ***                             | **                              |
-| Multiple Versions    | -                                 | **                  | **                              | ***                             |
-| Legacy App Support   | -                                 | -                   | ***                             | ***                             |
-| Distributed Systems  | -                                 | *                   | ***                             | ***                             |
-| Seamless Migration   | -                                 | -                   | *                               | ***                             |
-| Deduplication        | ***                               | ***                 | -                               | **                              |
-| Conflict Safety      | ***                               | ***                 | ***                             | ***                             |
-| Purge Version Data   | ***                               | -                   | ***                             | *                               |
-| Simplicity           | ***                               | *                   | **                              | ***                             |
-
-
-- Thanks to all the people who helped here
-- Thanks immmr.com
-- Follow us on Github, Twitter
-- Link to repo
-- Ask for feedback, open PR/issue
-
-##### Versioned API
-
-Instead of leaving old apps high and dry we may very well decide to support them at least for a while. And a common approach to implement multi-version support is through a versioned API. Imagine older clients could get older documents through the `/V1/`-API while newer clients could just talk to the `/V2/`-version. To make this possible we could still keep the CouchDB documents up to the latest version but provide server-side adapters that transform documents to the requested format.
-
-Sounds complicated? Let's take a look at the todo app. Say someone just wrote a `todo-item-1` document to the local database of their web app. But the system has already moved on to supporting `todo-item-2` documents. Luckily, the old app uses the `/V1/`-endpoint when synchronizing `todo-item-1` documents. Behind this endpoint there is an adapter we provided that migrates the document up to the newer version and stores it. The newer clients are save! And when the old wep app wants to get the latest documents it tries to get them, of course, through the `/V1/`-endpoint. Once again, an adapter intercepts the syncing-process and migrates newer documents down to version one. The wep app is save!
-
-As a general migration strategy, this approach looks very promising indeed. It would allow us to write adapters for each API version that could migrate documents on the fly, up and down. However, we cannot pursue this path further at this point because CouchDB does not provide any hooks that we could use to insert our adapters into the data-flow. This would have serious consequences for many aspects of the system including the replication mechanism. Since this is not an option, let's not have this discussion right now and instead focus on what is feasible.
-
-
-##### learning: ignore unknown attributes
-
-As a side node, we'd like to briefly mention that this approach will only work if old apps do not delete the new `isImportant` attributes. If we only have a simple web app this is of course not a concern because there will be no old apps around. But this will change at some point and we would like to mention the more general lesson here while we're at this point: applications should simply ignore attributes they don't know and persist them along with the data they care about. This way, other applications have the option to use the same schema and only add the attributes they need to provide additional functionality.
-
+-> published at und last updated header
