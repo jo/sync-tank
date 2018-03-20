@@ -4,7 +4,7 @@ permalink: /distributed-migration-strategies/
 ---
 
 # [Sync<br/>Tank](/) Distributed Migration Strategies
-## How to handle schema changes in CouchDB
+## Handling schema changes in CouchDB
 {:.no_toc}
 
 ## Table of contents
@@ -571,22 +571,64 @@ To round things off, let us suggest a terminology to work with the distinction w
 
 We have now established three dimensions of a taxonomy to help us reason about migration strategies. We could even view them as a kind of *orthogonal basis* of the space of possible migrations because we can move along each axis without affecting the other. This also means that our migration options multiply: we have identified three storage alternatives, two migration mechanisms, and two places where migrations could be performed for a total of *twelve distinct migration strategies*.
 
-Even though we cannot discuss these options here we have built up a vocabulary for communicating about the different approaches. We can, for instance, distinguish the traditional migrations, which are *eager server-side single-version migrations*, from the *lazy client-side single-version migrations* we have named *adapter migrations* in the previous part.
+Even though we cannot discuss these options here we have built up a vocabulary for communicating about the different approaches. We can, for instance, distinguish the traditional migrations, which are *eager server-side single-version migrations*, from the *lazy client-side single-version migrations* we have named *adapter migrations* in the previous part. Equipped with our new tools, lets talk a little bit about what to keep in mind when developing new migration strategies, before we wrap up this article with a summary of the things we've gone though.
 
 
-
-
-
-
-
-
-
-
-
-
-## Summary and Evaluation
+## Developing migration strategies
 
 > The internet is broken - Andi Pieper
+
+Schema migrations accross distributed systems are hard, and designing migration strategies is challenging for a lot of reasons. We have discussed some of the pitfalls and impasses you might run into, and there are a number of tradoffs to consider as well. In this last section we would like to collect some of the learnings from our discussion and address several open issues to keep in mind when deciding how to proceed.
+
+#### Tradeoffs
+
+Every software system is built in a particular context with specific requirements and resources that are limited in one way or another. When designing migration strategies it is important to keep these resources and requirements in mind. We will probably not be able to get the best of all the many worlds, we will not find the one, single, optimal migration strategy because all the different approaches have some merits and some disadvanteges. Instead, we will have to make design decision, and when we do, we want to keep some of the following points in mind.
+
+*Legacy app support.* Single-version migrations can never support clients that require multiple versions of the schema. This point seems almost too obvious to state, but it is crucial to decide from the beginning whether you need to support legacy clients or not. Maybe limited offline capabilities are enough for your project. Or maybe it is better to find a way of enforcing client updates. Keep in mind, though, that if you are planning on dropping old versions at one point, applications need to be equipped with some graceful shutdown or update mechanism *from the very beginning.*
+
+*Seamless miration processes.* Some of the strategies we have seen, e.g. the *on the fly* adapter migration, do not require any system downtime to run. This can be achieved by updating documents and distributing them accross the system *before* the applications working with them get updated. This works only for *multi-version* migrations, of course.
+
+*Simplicity.* Some of the strategies we have seen are appealing because they are a lot easier to implement and maintain than others. If your resources are scarce, you might value simlicity higher than some of the more advanced features that require more elaborate migration processes. For instance, fixing bugs in migration code that is written in multiple languages and has already been shipped to clients which are currently offline can turn out to be a maintenance nightmare.
+
+*Deduplication.* Storing documents for data-heavy applications can become expensive. Even more so when there are multiple versions of documents stored in parallel. *Multi-db* migrations in particular will run into this issue because they do not reuse documents accross different versions of the data schema. The whole point of *multi-db* migrations is to have all documents necessary to support some app version in one dedicated database. So there might be multiple versions of the very same document stored on a user's device. On the other hand, it is ridiculouly easy to delete old versions of the data schema: simply delete the corresponding database. This is how the problem of deduplication is related to questions of legacy app support and the purging of obsolete documents.
+
+*Conflict safety*. We have seen how migration processes that update documents in many places, e.g. on multiple clients in parallel, can create conflicts. Depending on your project you might be able to come up with very efficient conflict resolution mechanisms or you decide that the number of occuring conflicts will be managable. But keep in mind that, at leat for CouchDB, larger amounts of unhandled conflicts in a document's history will lead to severe performance penalties.
+
+#### Breaking changes
+
+When we talked about schema specifications and validations, we suggested to go with semantic versioning when putting the data schema under version control. We also said that schema changes would have be *interpreted* in order to apply semantic versioning to them: What counts as a feature? And when is a change breaking? We didn't say much about this point back then because we did not have the vocabulary to discuss the topic adequately. But we do now. So let's take a look.
+
+Put simply, a *breaking change* happens every time you modify one thing and another thing stops to work. Maybe you changed the parameters of an API and now the callers no longer know what to do with it. Or maybe you removed those unprofessional side effects from a function but another part of the program relied upon them. The situation is no different with schema changes. For instance, once you require documents to have a certain property, older version of these documents may become invalid and break newer clients.
+
+There are several types of schema changes and we have encountered a few of them in our examples: adding new document types, adding and removing *optional* properties, and adding or removing *required* properties. In general, we can think of specifications to become *stronger* or *weaker.* Making specifications stronger means we are more demanding as to the specific format of documents, and this can happen in a number of ways: (1) by adding a new required property to a document, (2) by making existing optional properties required, and (3) by restricting the format of properties, e.g. removing available options from Enums or restricting number ranges.
+
+* Making specifications stronger *always* introduces a breaking change.
+
+But what about weaker specifications? *Prima facie* weakening specifications should only introduce new features ("we can not store also store stings longer than 20 characters"), but this is not true for every context. If we are planning to implement a *multi-version* migration that allows us to support multiple client and schema versions in parallel we have to think *bi-directional*, as it were. It is no longer enough to make sure that newer clients can work with older documents, but also that older clients can handle newer documents. In this scenario, a weaker specification can render a new document unusable for an older app ("I cannot deal with strings longer than 20 characters").
+
+
+
+
+=> migration strategy has influence on what is breaking
+
+... there are other ways to introduce breaking changes (e.g. require a property to have a different type as before)
+
+
+
+
+2. Dropping version support.
+7. Conflict safety.
+8. Maintaining parallel schema versions.
+9. Breaking changes.
+10. Learnings.
+
+
+
+
+Although it looks like we are about the finish our discussion, the real work is only just about to start. Our main goal has been to open up a discussion about a really hard problem, to prepare the ground for exploring different solutions to it, and to illustrate some of the intricacies and complexities of the situation we are confronted with.
+
+
+
 
 TBD
 
