@@ -89,6 +89,12 @@ li {
   margin: 1ex 0;
   max-width: 38em;
 }
+hr {
+  border: none;
+  border-bottom: 1px solid black;
+  margin: 9ex 0;
+  max-width: 42em;
+}
 
 #markdown-toc {
   margin: 0 0 0 1.3em;

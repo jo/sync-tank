@@ -620,10 +620,10 @@ Although we have said what we had to say here, the real work is only just about 
 
 From here on out, our task is to design migration strategies for different use scenarios, and to share and discuss them. We are planning to present you an *eager, multi-version, server-side migration* in the near future, which we think is both versatile and maintainable and we are looking forward to having a fruitful exchange about that.
 
-For now, we'd like to thank you cordially for your attention and for following us through some rough terrain. We hope you feel like you've learned something. Should you feel inclined to leave any comments or suggestions, we would be delighted to receive issues and pull-requests to our [project repository](https://github.com/jo/sync-tank).
+For now, we'd like to thank you cordially for your attention and for following us through some rough terrain. We hope you feel like you've learned something. Should you feel inclined to leave any comments or suggestions, we would be delighted to receive [issues](https://github.com/jo/sync-tank/issues/new) and [pull-requests](https://github.com/jo/sync-tank/edit/master/distributed-migration-strategies/index.md) to our [project repository](https://github.com/jo/sync-tank).
 
 Finally, we'd like to thank [immmr](https://www.immmr.com/), and in particular Marten Schönherr, for giving us some time to explore the issues presented here. We also appreciate the ideas and suggestions we received from the people who have already been part of the discussion and who helped us understand the migration problem better: der und der und der.
 
+---
 
-
--> Follow us on Github
+Sync Tank and so [this article](https://github.com/jo/sync-tank/blob/master/distributed-migration-strategies/index.md) is [hosted on GitHub](https://github.com/jo/sync-tank). We're [@tfschmiz](https://twitter.com/tfschmiz) and [@MatthiasDumke](https://twitter.com/MatthiasDumke) on Twitter.
