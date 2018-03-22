@@ -2,7 +2,8 @@
 layout: default
 version: 1.0.0-rc1
 publishedAt: Wed 21 Mar 18:42:35 CET 2018
-lastUpdatedAt: Wed 21 Mar 18:42:35 CET 2018
+# in vim `:r! date`
+lastUpdatedAt: Thu 22 Mar 18:04:02 CET 2018
 permalink: /distributed-migration-strategies/
 ---
 
@@ -10,9 +11,7 @@ permalink: /distributed-migration-strategies/
 ## Handling schema changes in CouchDB
 {:.no_toc}
 
-Published at {{ page.publishedAt | date: '%B %d, %Y' }}
-
-version  {{ page.version }}, published 02/18/2018, last updated 04/12/2018
+version  {{ page.version }}, published {{ page.publishedAt | date: '%m/%d/%Y' }}, last updated {{ page.lastUpdatedAt | date: '%m/%d/%Y' }}
 
 ## Table of contents
 {:.no_toc}
