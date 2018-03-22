@@ -63,6 +63,9 @@ h1 + h2 {
   font-style: italic;
   font-size: 1.25em;
 }
+h1 + h2 + p {
+  color: #666;
+}
 h2 {
   padding-top: 6ex;
   max-width: 28em;
@@ -85,6 +88,12 @@ ol, ul {
 li {
   margin: 1ex 0;
   max-width: 38em;
+}
+hr {
+  border: none;
+  border-bottom: 1px solid black;
+  margin: 9ex 0;
+  max-width: 42em;
 }
 
 #markdown-toc {

@@ -1,11 +1,15 @@
 ---
 layout: default
+publishedAt: Wed 21 Mar 18:42:35 CET 2018
+lastUpdatedAt: Wed 21 Mar 18:42:35 CET 2018
 permalink: /distributed-migration-strategies/
 ---
 
 # [Sync<br/>Tank](/) Distributed Migration Strategies
 ## Handling schema changes in CouchDB
 {:.no_toc}
+
+Published at {{ page.publishedAt | date: '%B %d, %Y' }}
 
 ## Table of contents
 {:.no_toc}
@@ -34,7 +38,7 @@ In this article, we will begin by going through some basic concepts before we wi
 
 ## Preliminaries: CouchDB, schemas, and migrations
 
-Going through a technical discussion will be more fruitful if everybody is on the same page from the beginning. This is why in this part we would like to address a handful of general topics including a refresher on CouchDB, our understanding of schemas, migrations, and distributed systems, as well as best practices for working with data schemas in the wild. If you are already familiar with these topics, feel free to skim or skip this section. We will begin out discussion of migration strategies in the next part.
+Going through a technical discussion will be more fruitful if everybody is on the same page from the beginning. This is why in this part we would like to address a handful of general topics including a refresher on CouchDB, our understanding of schemas, migrations, and distributed systems, as well as best practices for working with data schemas in the wild. If you are already familiar with these topics, feel free to skim or skip this section. We will begin our discussion of migration strategies in the next part.
 
 ### Who is CouchDB?
 
@@ -42,11 +46,11 @@ As we just mentioned, and as the title of this article already suggests, we will
 
 > "Apache CouchDB™ lets you access your data where you need it by defining the Couch Replication Protocol that is implemented by a variety of projects and products that span every imaginable computing environment from globally distributed server-clusters, over mobile phones to web browsers."
 >
-> From the official [Apache CouchDB Documentation](https://couchdb.apache.org/)
+> From the official [Apache CouchDB Website](https://couchdb.apache.org/)
 
 We choose to focus on CouchDB because first of all, there is basically no production-ready alternative for a cross-platform data storage that provides synchronization capabilities and is also open source. Check out this [comparison chart](http://offlinefirst.org/sync/) to get an overview of offline capable storage options. And secondly, and pragmatically, we already know a lot about working with CouchDB, so this seems like a reasonable place for us to begin the discussion.
 
-CouchDB is a scalable document-oriented store that allows efficient MapReduce data queries via indexing. It is a mature open source project under the Apache foundation that supports clients on all major platforms including web browsers, Android and iOS devices. One of its main features is reliable synchronization of data between different installations via multi master replication (as opposed to master slave replications). We do not assume in-depth familiarity with CouchDB though some expose will be helpful. In the following we will quickly go over the most important concepts that are relevant in the context of schema migrations. If you need a more in-depth introduction to the system, [CouchDB. The definitive Guide](http://guide.couchdb.org/) is a good place to start.
+CouchDB is a scalable document-oriented store that allows efficient MapReduce data queries via indexing. It is a mature open source project under the Apache foundation that supports clients on all major platforms including [web browsers](https://pouchdb.com/), [Android](https://github.com/cloudant/sync-android) and [iOS](https://github.com/cloudant/CDTDatastore) devices. One of its main features is reliable synchronization of data between different installations via multi master replication (as opposed to master slave replications). We do not assume in-depth familiarity with CouchDB though some expose will be helpful. In the following we will quickly go over the most important concepts that are relevant in the context of schema migrations. If you need a more in-depth introduction to the system, [CouchDB. The definitive Guide](http://guide.couchdb.org/) is a good place to start.
 
 To begin with, let's get some technicalities out of the way: CouchDB provides an HTTP API for all database interactions like storing or retrieving information and managing databases. A single database within the system is just a document that can be created via a simple HTTP request like so: `PUT $COUCH/db-name`. This means that databases are very lightweight and can be created and deleted with ease. As a consequence, and as we shall see below, it is a common practice to create a new database for every user in a system (this approach is called 'couch-per-user' and we will make use of it here, though it is [not beyond dispute](https://medium.com/ibm-watson-data-lab/cloudant-best-and-worst-practices-7ee2040da1b)).
 
@@ -61,7 +65,7 @@ Data is transmitted and stored in the form of JSON-documents that can have any v
 
 This is a JSON-document storing information about a todo item. We will see more of these documents when we start developing an example application in the next part. But for now we want to focus just on the `_id` attribute, the document identifier.
 
-CouchDB uses `_id` to uniquely identify documents. If there is any information you need to be unique throughout the database, put it into the `_id`. If you don't set one yourself, CouchDB will create a UUID for you and set it for you, but we recommend to take the opportunity and store more meaningful information here, in other words: make the `_id` semantic! In the example we store the document type along with a UUID. This allows us to quickly identitfy the kind of document we are dealing with if this id is returned e.g. from a query. It also allows us to extract documents by type via the handy [`_all_docs`](http://docs.couchdb.org/en/latest/api/database/bulk-api.html#db-all-docs) query. Finding a good strategy for creating `_id`s is one of the challenges when it comes to data design. We will touch upon this topic a cople of times further down the road.
+CouchDB uses `_id` to uniquely identify documents. If there is any information you need to be unique throughout the database, put it into the `_id`. If you don't set one yourself, CouchDB will create a UUID for you and set it for you, but we recommend to take the opportunity and store more meaningful information here, in other words: make the `_id` semantic! In the example we store the document type along with a UUID. This allows us to quickly identitfy the kind of document we are dealing with if this id is returned e.g. from a query. It also allows us to extract documents by type via the handy [`_all_docs`](http://docs.couchdb.org/en/latest/api/database/bulk-api.html#db-all-docs) query. Finding a good strategy for creating `_id`s is one of the challenges when it comes to data design. We will touch upon this topic a couple of times further down the road.
 
 As was briefly mentioned above, CouchDB makes it possible to retrieve documents by implementing the powerful [MapReduce](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) pattern. In particular, it allows us to create so-called 'views' that define which data should be returned when they are queried. CouchDB will then build indices to find the requested data quickly and efficiently. As of version 2.0.0 CouchDB also allows queries via [Mango selectors](http://docs.couchdb.org/en/latest/api/database/find.html) that are based on MapReduce and are very performant yet flexible. The ability to query efficiently is of central importance when it comes to data design but there is no need to go into further depth at this point because the discussion of migrations will not require that.
 
@@ -107,7 +111,7 @@ In both cases, the revision number is increased to two and the name attribute ha
 }
 ```
 
-The next time you retrieve this document, you can instruct CouchDB to also include any conflicting revisions and it will include the `_conflicts`-attribute. Based on this it is now possible to implement mechanisms for resolving conflicts in ways that fit your needs best. The important point is that CouchDB will not lose any information, provides reasonable defaults, and still gives you full flexibility over how to resove the conflicts you encounter.
+The next time you retrieve this document, you can instruct CouchDB to also include any conflicting revisions and it will include the `_conflicts`-attribute. Based on this it is now possible to implement mechanisms for resolving conflicts in ways that fit your needs best. The important point is that CouchDB will not lose any information, provides reasonable defaults, and still gives you full flexibility over how to resolve the conflicts you encounter.
 
 For the time being, these notes will suffice as a review of central CouchDB concepts. We will touch upon many of the points throughout the rest of this article. Next up is an explanation of what we have in mind when we talk about schemas, migrations, and distributed systems.
 
@@ -260,7 +264,7 @@ For now, this piecemeal approach of worrying about one user and one database at 
   "schema": "todo-item",
   "version": 1,
   "title": "reimplement my pet project in Rust",
-  "isDone": true,
+  "isDone": false,
   "createdAt": "2017-11-14T00:00:00.000Z"
 }
 ```
@@ -425,7 +429,7 @@ I want to edit todo items even when my internet connection is unreliable
 so that I can plan my life without having to worry about network quality.
 ```
 
-This could be done by building full-fledged desktop or native apps or, to start simple, by transforming the already existing web application into a *Progressive Web App* that can run on a desktop environment. In any case, all the relevant application data will have to be stored on the client so that it can operate in the absence of a network connection.
+This could be done by building full-fledged desktop or native apps or, to start <abbr title="¯\_(ツ)_/¯">simple</abbr>, by transforming the already existing web application into a *Progressive Web App* that can run on a desktop environment. In any case, all the relevant application data will have to be stored on the client so that it can operate in the absence of a network connection.
 
 When a user can create or edit todo items even if the client is offline we need to provide a way to synchronize any changes once it comes back online. Luckily we have CouchDB on our team! There are a number of client-side adaptations like [PouchDB](https://pouchdb.com/) for browsers or [Cloudant Sync](https://www.ibm.com/analytics/us/en/technology/offline-first/) for phones that provide CouchDB-like storing capabilities for clients and implement the Couch replication protocol so synchronizing data between different parts of the system becomes simple and fun.
 
@@ -564,7 +568,7 @@ A major difference between the two approaches is that lazy migrations have to in
 
 As a third and last dimension of a useful taxonomy we suggest to take into account whether migrations are performed on the server-side database or on the client. Traditional migrations are only run on the server, but we have already started to consider alternatives in the previous discussions.
 
-Running migrations on client-side databases comes with additional difficulties. For instance, it will be harder to fix bugs and maintain code that is distributed across multiple user devices. Performing migrations on a single server that you have direct access to makes migrations a lot easier to test, control, and possibly even revert. Additionally, multiple client applications may be written in a number of different programming languages so that the respective migration code, which can already be challenging to get correct in the first place, would have to be written multiple times in multiple languages. Lastly, the different clients that implement the [Couch replication protocol](http://docs.couchdb.org/en/master/replication/protocol.html) (like CouchDB, PouchDB, Cloudant, etc.) do not generate the same revision ids (there are some plans to unify this behavior, though). Without consistent `_rev`s, creating the same document on multiple clients in parallel could lead to a massive amount of conflicts. This is not to say that running migrations on the client is a bad choice, we just want to caution that it may come with additional baggage.
+Running migrations on client-side databases comes with additional difficulties. For instance, it will be harder to fix bugs and maintain code that is distributed across multiple user devices. Performing migrations on a single server that you have direct access to makes migrations a lot easier to test, control, and possibly even revert. Additionally, multiple client applications may be written in a number of different programming languages so that the respective migration code, which can already be challenging to get correct in the first place, would have to be written multiple times in multiple languages. Lastly, the different clients that implement the [Couch replication protocol](http://docs.couchdb.org/en/master/replication/protocol.html) (like CouchDB, PouchDB, Cloudant Sync, etc.) do not generate the same revision ids (there are some plans to unify this behavior, though). Without consistent `_rev`s, creating the same document on multiple clients in parallel could lead to a massive amount of conflicts. This is not to say that running migrations on the client is a bad choice, we just want to caution that it may come with additional baggage.
 
 To round things off, let us suggest a terminology to work with the distinction we have drawn here:
 
@@ -584,7 +588,7 @@ Schema migrations across distributed systems are hard, and designing migration s
 
 #### Tradeoffs
 
-Every software system is built in a particular context with specific requirements and resources that are limited in one way or another. When designing migration strategies it is important to keep these resources and requirements in mind. We will probably not be able to get the best of all the many worlds, we will not find the one, single, optimal migration strategy because all the different approaches have some merits and some disadvantages. Instead, we will have to make design decision, and when we do, we want to keep some of the following points in mind.
+Every software system is built in a particular context with specific requirements and resources that are limited in one way or another. When designing migration strategies it is important to keep these resources and requirements in mind. We will probably not be able to get the best of all the many worlds, we will not find the one, single, optimal migration strategy because all the different approaches have some merits and some disadvantages. Instead, we will have to make design decisions, and when we do, we want to keep some of the following points in mind.
 
 *Legacy app support.* Single-version migrations can never support clients that require multiple versions of the schema. This point seems almost too obvious to state, but it is crucial to decide from the beginning whether you need to support legacy clients or not. Maybe limited offline capabilities are enough for your project. Or maybe it is better to find a way of enforcing client updates. Keep in mind, though, that if you are planning on dropping old versions at one point, applications need to be equipped with some graceful shutdown or update mechanism *from the very beginning.* This topic is larger than it might appear at first glance. Legacy support can mean different things, for instance that you make sure old apps will not break when data is migrated, even though you might achieve this by ignoring some documents. It can also mean that you migrate data *down* so that older apps can have full access to all the latest information. What legacy support means depends on the respective context.
 
@@ -616,12 +620,10 @@ Although we have said what we had to say here, the real work is only just about 
 
 From here on out, our task is to design migration strategies for different use scenarios, and to share and discuss them. We are planning to present you an *eager, multi-version, server-side migration* in the near future, which we think is both versatile and maintainable and we are looking forward to having a fruitful exchange about that.
 
-For now, we'd like to thank you cordially for your attention and for following us through some rough terrain. We hope you feel like you've learned something. Should you feel inclined to leave any comments or suggestions, we would be delighted to receive issues and pull-requests to our [project repository](https://github.com/jo/sync-tank).
+For now, we'd like to thank you cordially for your attention and for following us through some rough terrain. We hope you feel like you've learned something. Should you feel inclined to leave any comments or suggestions, we would be delighted to receive [issues](https://github.com/jo/sync-tank/issues/new) and [pull-requests](https://github.com/jo/sync-tank/edit/master/distributed-migration-strategies/index.md) to our [project repository](https://github.com/jo/sync-tank).
 
 Finally, we'd like to thank [immmr](https://www.immmr.com/), and in particular Marten Schönherr, for giving us some time to explore the issues presented here. We also appreciate the ideas and suggestions we received from the people who have already been part of the discussion and who helped us understand the migration problem better: der und der und der.
 
+---
 
-
--> Follow us on Github, Twitter
-
--> published at und last updated header
+Sync Tank and so [this article](https://github.com/jo/sync-tank/blob/master/distributed-migration-strategies/index.md) is [hosted on GitHub](https://github.com/jo/sync-tank). We're [@tfschmiz](https://twitter.com/tfschmiz) and [@MatthiasDumke](https://twitter.com/MatthiasDumke) on Twitter.
