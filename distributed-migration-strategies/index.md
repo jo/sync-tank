@@ -1,5 +1,6 @@
 ---
 layout: default
+version: 1.0.0-rc1
 publishedAt: Wed 21 Mar 18:42:35 CET 2018
 lastUpdatedAt: Wed 21 Mar 18:42:35 CET 2018
 permalink: /distributed-migration-strategies/
@@ -10,6 +11,8 @@ permalink: /distributed-migration-strategies/
 {:.no_toc}
 
 Published at {{ page.publishedAt | date: '%B %d, %Y' }}
+
+version  {{ page.version }}, published 02/18/2018, last updated 04/12/2018
 
 ## Table of contents
 {:.no_toc}
@@ -111,7 +114,7 @@ In both cases, the revision number is increased to two and the name attribute ha
 }
 ```
 
-The next time you retrieve this document, you can instruct CouchDB to also include any conflicting revisions and it will include the `_conflicts`-attribute. Based on this it is now possible to implement mechanisms for resolving conflicts in ways that fit your needs best. The important point is that CouchDB will not lose any information, provides reasonable defaults, and still gives you full flexibility over how to resolve the conflicts you encounter.
+The next time you retrieve this document, you can instruct CouchDB to also include any conflicting revisions and it will include the `_conflicts`-attribute. Based on this it is now possible to implement mechanisms for resolving conflicts in ways that fit your needs best. This is great: CouchDB will not lose any information, it provides reasonable defaults, and it still gives you full flexibility over how to resolve the conflicts you encounter.
 
 For the time being, these notes will suffice as a review of central CouchDB concepts. We will touch upon many of the points throughout the rest of this article. Next up is an explanation of what we have in mind when we talk about schemas, migrations, and distributed systems.
 
@@ -140,7 +143,7 @@ The last concept to address are **distributed systems**. According to the Wikipe
 
 To apply this broad definition to the CouchDB environment, we can interpret database documents as messages, data transfer via replication as message passing, and the various apps on phones and in browers and the backend services as the components located on networked computers. This can mean that data will have to be stored not only on a server but also on user-devices, which in turn must be enabled to synchronize data updates with the rest of the system so all parts can operate on a shared informational basis.
 
-In this distributed scenario, different applications can make very different use of the same data. For instance, an Android app may use data to display a list of todos to the user while a backend service may be interested in the metadata to build usage profiles. We therefore have software that accesses, processes, and stores data in very different locations and according to their very different requirements. For the whole system to be intact it is mandatory that the structure of the data not be changed in any unforseeable way. The different parts of the system, and consequently the different teams working on the different parts of the system, are bound by an (implicit) contract, by the (implicit) data schema they all have to respect. In the scenario we are going to build up here, we may even go one step further and say that *the data schema is the effective database API* of the distributed system because it ultimately defines the way in which data can be accessed. From this perspective, a schema-change implies an API change for any part of the system that is dependent on the data. This is why it is of such importance to have a strategy for dealing with schema changes.
+In this distributed scenario, different applications can make very different use of the same data. For instance, an Android app may use data to display a list of todos to the user while a backend service may be interested in the metadata to build usage profiles. We therefore have software that accesses, processes, and stores data in very different locations and according to their very different requirements. For the whole system to be intact it is mandatory to not change the structure of the data in any unforseeable way. The different parts of the system, and consequently the different teams working on the different parts of the system, are bound by an (implicit) contract, by the (implicit) data schema they all have to respect. In the scenario we are going to build up here, we may even go one step further and say that *the data schema is the effective database API* of the distributed system because it ultimately defines the way in which data can be accessed. From this perspective, a schema-change implies an API change for any part of the system that is dependent on the data. This is why it is of such importance to have a strategy for dealing with schema changes.
 
 When migrations become necessary in distributed systems, we run into the complex issues this article is about.
 
@@ -626,4 +629,4 @@ Finally, we'd like to thank [immmr](https://www.immmr.com/), and in particular M
 
 ---
 
-Sync Tank and so [this article](https://github.com/jo/sync-tank/blob/master/distributed-migration-strategies/index.md) is [hosted on GitHub](https://github.com/jo/sync-tank). We're [@tfschmiz](https://twitter.com/tfschmiz) and [@MatthiasDumke](https://twitter.com/MatthiasDumke) on Twitter.
+Sync Tank, including [this article](https://github.com/jo/sync-tank/blob/master/distributed-migration-strategies/index.md), is [hosted on GitHub](https://github.com/jo/sync-tank). We are [@tfschmiz](https://twitter.com/tfschmiz) and [@MatthiasDumke](https://twitter.com/MatthiasDumke) on Twitter.
