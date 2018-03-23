@@ -1,4 +1,5 @@
 ---
+title: Distributed Migration Strategies
 layout: default
 version: 1.0.0-rc1
 publishedAt: Wed 21 Mar 18:42:35 CET 2018
@@ -7,7 +8,7 @@ lastUpdatedAt: Thu 22 Mar 18:04:02 CET 2018
 permalink: /distributed-migration-strategies/
 ---
 
-# [Sync<br/>Tank](/) Distributed Migration Strategies
+# [Sync <br/>Tank](/) Distributed Migration Strategies
 ## Handling schema changes in CouchDB
 {:.no_toc}
 
