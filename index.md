@@ -27,4 +27,6 @@ Before you follow us deeper into this discussion and open your minds and hearts 
 
 Moreover Johannes has a decade's worth of experience with distributed databases. He has authored and worked on several widely used tools in the CouchDB ecosystem. He is the main author of the [CouchDB Best Practices](http://ehealthafrica.github.io/couchdb-best-practices/) guidelines he compiled during his work at [eHealth Africa](https://www.ehealthafrica.org/).
 
+---
+
 The Sync Tank website is [hosted on GitHub](https://github.com/jo/sync-tank). We're [@tfschmiz](https://twitter.com/tfschmiz) and [@MatthiasDumke](https://twitter.com/MatthiasDumke) on Twitter.
