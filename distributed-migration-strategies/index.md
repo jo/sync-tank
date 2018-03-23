@@ -624,7 +624,7 @@ From here on out, our task is to design migration strategies for different use s
 
 For now, we'd like to thank you cordially for your attention and for following us through some rough terrain. We hope you feel like you've learned something. Should you feel inclined to leave any comments or suggestions, we would be delighted to receive [issues](https://github.com/jo/sync-tank/issues/new) and [pull-requests](https://github.com/jo/sync-tank/edit/master/distributed-migration-strategies/index.md) to our [project repository](https://github.com/jo/sync-tank).
 
-Finally, we'd like to thank [immmr](https://www.immmr.com/), and in particular Marten Schönherr, for giving us some time to explore the issues presented here. We also appreciate the ideas and suggestions we received from the people who have already been part of the discussion and who helped us understand the migration problem better: der und der und der.
+Finally, we'd like to thank [immmr](https://www.immmr.com/), and in particular Marten Schönherr, for giving us some time to explore the issues presented here. We also appreciate the ideas and suggestions we received from the people who have already been part of the discussion and who helped us understand the migration problem better: Andi Pieper, Benjamin Kampmann, Jan Lehnardt, Martin Stadler and others.
 
 ---
 
