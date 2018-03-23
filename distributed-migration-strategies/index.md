@@ -11,7 +11,7 @@ permalink: /distributed-migration-strategies/
 ## Handling schema changes in CouchDB
 {:.no_toc}
 
-version  {{ page.version }}, published {{ page.publishedAt | date: '%m/%d/%Y' }}, last updated {{ page.lastUpdatedAt | date: '%m/%d/%Y' }}
+published {{ page.publishedAt | date: '%m/%d/%Y' }}, last updated {{ page.lastUpdatedAt | date: '%m/%d/%Y' }}
 
 ## Table of contents
 {:.no_toc}
