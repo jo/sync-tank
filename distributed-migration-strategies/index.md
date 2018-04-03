@@ -243,7 +243,7 @@ In the above example, the schema specification for the document has its own vers
 To sum up this discussion, introducing format-requirements to schemaless databases opens up a space between purely implicit schemas and rigidly explicit ones, providing greater flexibility when it comes to specifying and changing schema definitions. This allows us to pick the sweet spot between data consistency and flexibility that we see fit for our projects. Storing the schema version of each document in the document itself paves the way for implementing schema migrations, which we will now turn our attention to.
 
 
-## If it ain't broke, don't fix it
+## If It Ain't Broke, Don't Fix It
 
 There are times when updates to a data schema do not endanger the functionality of a system. In these scenarios, migrations are either straight forward or not even necessary in the first place. We would like to start by looking at some such cases because if you can get away without the multi-client multi-version migration hassle you can save yourself a lot of work. In particular, we will start by looking at unobtrusive additions to the data schema as well as traditional server-side migrations.
 
