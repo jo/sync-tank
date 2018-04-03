@@ -9,12 +9,12 @@ permalink: /distributed-migration-strategies/
 ---
 
 # [Sync <br/>Tank](/) Distributed Migration Strategies
-## Handling schema changes in CouchDB
+## Handling Schema Changes in CouchDB
 {:.no_toc}
 
 published {{ page.publishedAt | date: '%B %d, %Y' }}, last updated {{ page.lastUpdatedAt | date: '%B %d, %Y' }}
 
-## Table of contents
+## Table of Contents
 {:.no_toc}
 
 1. this unordered seed list will be replaced by toc as unordered list
@@ -24,26 +24,26 @@ published {{ page.publishedAt | date: '%B %d, %Y' }}, last updated {{ page.lastU
 
 > "Software development is change management" - Ashley Williams, [A Brief History of Modularity](https://www.youtube.com/watch?v=vypCsVm5z28) at JSConf EU 2017
 
-There is a certain kind of software that doesn't change over time. Dead software. Software that no one is using. If anybody would be using it, there would inevitably be suggestions for improvement and change requests. This is true for your pet project as it is true for enterprise software. Good software is constantly changing. That's the first part of our problem. The second part is the sort of software we would like to be writing: offline-capable, decentralized and scalable systems that can support and synchronize a whole range of different clients.
+Good software is constantly changing. Users will inevitably suggest improvements and make change requests. The only software that does not change over time is software that nobody uses. That's the first part of our problem. The second part is the sort of software we would like to be writing: offline-capable, decentralized and scalable systems that can support and synchronize a whole range of different clients.
 
-There are solutions and best practices for both of these challenges. Agile methodologies integrate readiness for change into the very process of developing software, allowing us to have working software in front of customers early on and adapting it based on feedback. There also exist tools and technologies that support offline-capable multi-client applications. But as it turns out it is not so easy to bring those requirements together. The cause of all the trouble is one of those parts of the system that is usually friendly and not as attention-craving as shiny front-ends or massive costs of operating server clusters: the data schema. The data schema?
+There are separate solutions and best practices for both of these challenges. Agile methodologies integrate readiness for change into the very process of developing software, allowing us to have working software in front of customers early on and adapting it based on feedback. There also exist tools and technologies that support offline-capable multi-client applications. But as it turns out it is not so easy to bring those requirements together. The cause of all the trouble is one of those parts of the system that is usually friendly and not as attention-craving as shiny front-ends or massive costs of operating server clusters: the data schema. The data schema?
 
-Here's the short version of the problem: if an application implements new features, it often requires new data or data to be in different formats. That's a schema migration. Now if you have multiple applications that share data accross the system, even more so when some of those could be offline, it is impossible to update all of them at that same time. This leads to our initial conundrum:
+Here's the short version of the problem: if an application implements new features, it often requires new data or data to be in different formats. That's a schema migration. Now if you have multiple applications that share data across the system, even more so when some of those could be offline, it is impossible to update all of them at that same time. This leads to our initial conundrum:
 
 * How can we update the data schema to support new applications when there might be old applications around that still rely on older versions of the schema?
 
 At the time of this writing, performing schema migrations in distributed systems is largely unexplored terrain. In what follows, you will find a detailed exposition of our thoughts on this problem. We will outline various solutions from simple to more complex ones, and build up to a taxonomy of what we call *distributed migration strategies*.
 
-To make the problem more managable, and because our professional background naturally leads us to it, we will focus our discussion on *Apache CouchDB*, especially when it comes to providing examples for the topics we discuss. And while we're at it, let us add a note on our background. We, Johannes J. Schmidt and Matthias Dumke, are data architects at a company called [immmr](https://www.immmr.com/) that builds communication applications for a variety of platforms. Our main task is to manage data sychronization accross a large, distributed system of native clients, web applications, desktop apps, and backend services. In this context, CouchDB is our main tool when it comes to providing stable and scalable replication of user data and allowing the company to stay agile.
+To make the problem more manageable, and because our professional background naturally leads us to it, we will focus our discussion on *Apache CouchDB*, especially when it comes to providing examples for the topics we discuss. And while we're at it, let us add a note on our background. We, Johannes J. Schmidt and Matthias Dumke, are data architects at a company called [immmr](https://www.immmr.com/) that builds communication applications for a variety of platforms. Our main task is to manage data synchronization across a large, distributed system of native clients, web applications, desktop apps, and backend services. In this context, CouchDB is our main tool when it comes to providing stable and scalable replication of user data and allowing the company to stay agile.
 
 In this article, we will begin by going through some basic concepts before we will illustrate the problem of schema migrations, starting from simple scenarios and integrating more complex requirements as we go along.
 
 
-## Preliminaries: CouchDB, schemas, and migrations
+## Preliminaries: CouchDB, Schemas, and Migrations
 
 Going through a technical discussion will be more fruitful if everybody is on the same page from the beginning. This is why in this part we would like to address a handful of general topics including a refresher on CouchDB, our understanding of schemas, migrations, and distributed systems, as well as best practices for working with data schemas in the wild. If you are already familiar with these topics, feel free to skim or skip this section. We will begin our discussion of migration strategies in the next part.
 
-### Who is CouchDB?
+### CouchDB - A Database that Syncs
 
 As we just mentioned, and as the title of this article already suggests, we will narrow down the focus of our discussion to software systems backed by CouchDB. In case you didn't know,
 
@@ -53,9 +53,9 @@ As we just mentioned, and as the title of this article already suggests, we will
 
 We choose to focus on CouchDB because first of all, there is basically no production-ready alternative for a cross-platform data storage that provides synchronization capabilities and is also open source. Check out this [comparison chart](http://offlinefirst.org/sync/) to get an overview of offline capable storage options. And secondly, and pragmatically, we already know a lot about working with CouchDB, so this seems like a reasonable place for us to begin the discussion.
 
-CouchDB is a scalable document-oriented store that allows efficient MapReduce data queries via indexing. It is a mature open source project under the Apache foundation that supports clients on all major platforms including [web browsers](https://pouchdb.com/), [Android](https://github.com/cloudant/sync-android) and [iOS](https://github.com/cloudant/CDTDatastore) devices. One of its main features is reliable synchronization of data between different installations via multi master replication (as opposed to master slave replications). We do not assume in-depth familiarity with CouchDB though some expose will be helpful. In the following we will quickly go over the most important concepts that are relevant in the context of schema migrations. If you need a more in-depth introduction to the system, [CouchDB. The definitive Guide](http://guide.couchdb.org/) is a good place to start.
+CouchDB is a scalable document-oriented store that allows efficient MapReduce data queries via indexing. It is a mature open source project under the Apache foundation that supports clients on all major platforms including [web browsers](https://pouchdb.com/), [Android](https://github.com/cloudant/sync-android) and [iOS](https://github.com/cloudant/CDTDatastore) devices. One of its main features is reliable synchronization of data between different installations via multi-master replication. We do not assume in-depth familiarity with CouchDB though some expose will be helpful. In the following we will quickly go over the most important concepts that are relevant in the context of schema migrations. If you need a more in-depth introduction to the system, [CouchDB. The definitive Guide](http://guide.couchdb.org/) is a good place to start.
 
-To begin with, let's get some technicalities out of the way: CouchDB provides an HTTP API for all database interactions like storing or retrieving information and managing databases. A single database within the system is just a document that can be created via a simple HTTP request like so: `PUT $COUCH/db-name`. This means that databases are very lightweight and can be created and deleted with ease. As a consequence, and as we shall see below, it is a common practice to create a new database for every user in a system (this approach is called 'couch-per-user' and we will make use of it here, though it is [not beyond dispute](https://medium.com/ibm-watson-data-lab/cloudant-best-and-worst-practices-7ee2040da1b)).
+To begin with, let's get some technicalities out of the way: CouchDB provides an HTTP API for all database interactions like storing or retrieving information and managing databases. A single database within the system is a document that can be created via a simple HTTP request like so: `PUT $COUCH/db-name`. This means that databases are very lightweight and can be created and deleted with ease.
 
 Data is transmitted and stored in the form of JSON-documents that can have any valid format you want them to have, plus some attributes such as `_id` and others starting with an underscore that have special meaning. Here's an example document to make this more concrete:
 
@@ -68,7 +68,7 @@ Data is transmitted and stored in the form of JSON-documents that can have any v
 
 This is a JSON-document storing information about a todo item. We will see more of these documents when we start developing an example application in the next part. But for now we want to focus just on the `_id` attribute, the document identifier.
 
-CouchDB uses `_id` to uniquely identify documents. If there is any information you need to be unique throughout the database, put it into the `_id`. If you don't set one yourself, CouchDB will create a UUID for you and set it for you, but we recommend to take the opportunity and store more meaningful information here, in other words: make the `_id` semantic! In the example we store the document type along with a UUID. This allows us to quickly identitfy the kind of document we are dealing with if this id is returned e.g. from a query. It also allows us to extract documents by type via the handy [`_all_docs`](http://docs.couchdb.org/en/latest/api/database/bulk-api.html#db-all-docs) query. Finding a good strategy for creating `_id`s is one of the challenges when it comes to data design. We will touch upon this topic a couple of times further down the road.
+CouchDB uses `_id` to uniquely identify documents. If there is any information you need to be unique throughout the database, put it into the `_id`. If you don't set one yourself, CouchDB will create a UUID for you and set it for you, but we recommend to take the opportunity and store more meaningful information here, in other words: make the `_id` semantic! In the example we store the document type along with a UUID. This allows us to quickly identify the kind of document we are dealing with if this id is returned e.g. from a query. It also allows us to extract documents by type via the handy [`_all_docs`](http://docs.couchdb.org/en/latest/api/database/bulk-api.html#db-all-docs) query. Finding a good strategy for creating `_id`s is one of the challenges when it comes to data design. We will touch upon this topic a couple of times further down the road.
 
 As was briefly mentioned above, CouchDB makes it possible to retrieve documents by implementing the powerful [MapReduce](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf) pattern. In particular, it allows us to create so-called 'views' that define which data should be returned when they are queried. CouchDB will then build indices to find the requested data quickly and efficiently. As of version 2.0.0 CouchDB also allows queries via [Mango selectors](http://docs.couchdb.org/en/latest/api/database/find.html) that are based on MapReduce and are very performant yet flexible. The ability to query efficiently is of central importance when it comes to data design but there is no need to go into further depth at this point because the discussion of migrations will not require that.
 
@@ -102,7 +102,7 @@ If there was a network connection between Maja's devices, any changes she'd make
 }
 ```
 
-In both cases, the revision number is increased to two and the name attribute has been changed, of course. Now if both devices are connected CouchDB will try to bring all data to the same state, but it is inherently unclear which one of the changes should determine the final version of the language document. Even if it was feasible to compare document write times accross different systems (which is often very hard to accomplish) and then choose a final document on a last-write-wins basis, it is not clear that this manner of handling conflicts is always the preferred way. This is why CouchDB will by default pick some version as winning - deterministically based on the revision id and number - and will reference conflicting versions in the document. This way, no information is lost and conflicts can be resolved more elaborately if necessary. For completeness, here is the final document that CouchDB automatically creates after default handling of the conflict.
+In both cases, the revision number is increased to two and the name attribute has been changed, of course. Now if both devices are connected CouchDB will try to bring all data to the same state, but it is inherently unclear which one of the changes should determine the final version of the language document. Even if it was feasible to compare document write times across different systems (which is often very hard to accomplish) and then choose a final document on a last-write-wins basis, it is not clear that this manner of handling conflicts is always the preferred way. This is why CouchDB will by default pick some version as winning - deterministically based on the revision id and number - and will reference conflicting versions in the document. This way, no information is lost and conflicts can be resolved more elaborately if necessary. For completeness, here is the final document that CouchDB automatically creates after default handling of the conflict.
 
 ```json
 {
@@ -119,7 +119,7 @@ The next time you retrieve this document, you can instruct CouchDB to also inclu
 For the time being, these notes will suffice as a review of central CouchDB concepts. We will touch upon many of the points throughout the rest of this article. Next up is an explanation of what we have in mind when we talk about schemas, migrations, and distributed systems.
 
 
-### Basic concepts: schemas, migrations, and distributed systems
+### Basic Concepts: Schemas, Migrations, and Distributed Systems
 
 If you want to store and retrieve data in an automated and efficient way, it is important to have some knowledge about the format or structure of this data. This is meta-information specifying things like data attributes and the data types to be used to store them. We would like to think of the **data schema** as all relevant structure-information about the different pieces of data to be stored by an application.
 
@@ -148,7 +148,7 @@ In this distributed scenario, different applications can make very different use
 When migrations become necessary in distributed systems, we run into the complex issues this article is about.
 
 
-### Make your schema explicit!
+### Make Your Schema Explicit!
 
 We have already mentioned that even if people may call your database *schemaless* this does not mean you can actually work without a data schema. Granted, you may be able to change your mind at any time and store differently structured information and the database will be fine with that. This is why schemaless databases have a reputation for facilitating flexible development. But at the very least the data schema will be *implicit* as your applications have certain expectations about what kind information there is in the database. We have found that it is very helpful to be more explicit about the schema. Allow us to argue for that:
 
@@ -247,7 +247,7 @@ To sum up this discussion, introducing format-requirements to schemaless databas
 
 There are times when updates to a data schema do not endanger the functionality of a system. In these scenarios, migrations are either straight forward or not even necessary in the first place. We would like to start by looking at some such cases because if you can get away without the multi-client multi-version migration hassle you can save yourself a lot of work. In particular, we will start by looking at unobtrusive additions to the data schema as well as traditional server-side migrations.
 
-### Setting the stage: A toy problem
+### Setting the Stage: A Toy Problem
 
 While this article is not supposed to be a tutorial, it will be instructive to have a working example at hands to illustrate some points. Our example of choice is the 'Hello World' of software applications, the todo app. A simple todo app does not look like the most daunting challenge to face from a data architecture perspective: todos can have titles and texts, maybe a creation date and a 'done' flag. None of this would make you sit down and write a full article about different strategies for how to accommodate this information in your database. But things get a lot more interesting once we agree to meet a few additional requirements:
 
@@ -257,7 +257,7 @@ While this article is not supposed to be a tutorial, it will be instructive to h
 
 These requirements will eventually lead us to think about distributed migrations. Of course, this is all way ahead. For now we just want you to know that a tiny todo app can cause a whole lot of trouble further down the road. But this section is about starting simple, so let's start with a simple setup for a simple todo app and take on new challenges as we go along.
 
-In the simplest of todo app scenarios, we want to enable a user to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a web app to provide a nice interface, a server to deliver that application, a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This is a common practice in the CouchDB world that ties in well with the fact that CouchDB permissions-management is modeled on a per-database basis. It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases. Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect - unlike when you run out of space with your relational database (though, to be fair, management may not be as happy, because operating a CouchDB cluster at scale may become a somewhat costly affair).
+In the simplest of todo app scenarios, we want to enable a user to manage a few, or maybe a few thousand todo items from the comfort of their web browser. The basic building blocks to set up such a service are: a web app to provide a nice interface, a server to deliver that application, a central database that stores all those todos, and bit of infrastructure to glue the pieces together. We have decided to use CouchDB as our database and as we mentioned above we chose to set up the system such that every user gets their very own database. This approach ties in well with the fact that CouchDB permissions-management is modeled on a per-database basis. This practice, known as *db-per-user*, is very common in the CouchDB world, though it is [not beyond dispute](https://medium.com/ibm-watson-data-lab/cloudant-best-and-worst-practices-7ee2040da1b). It entails that there is no way for one user to get direct access to anybody else's data because they are stored in different databases. Everybody manages their own todos in their own database. And yes: once our product goes viral and there are two million users there will be two million databases. Well, Ops problem. In fact, Ops will be happy to find that CouchDB comes with clustering abilities so scaling up is not a terrifying prospect - unlike when you run out of space with your relational database (though, to be fair, management may not be as happy, because operating a CouchDB cluster at scale may become a somewhat costly affair).
 
 For now, this piecemeal approach of worrying about one user and one database at a time simplifies our problem. To complete the first step and bring version one of our todo app to the market, all there is to do as far as the schema is concerned is to decide how a single todo item is supposed to look. And since we wanted to start simple, and since the *sine qua non* of a todo item is basically just a title and a flag, here's an example of the first, launch-ready version of a valid todo item document to be stored in a user's CouchDB that also adheres to the schema we specified in the last part:
 
@@ -272,7 +272,7 @@ For now, this piecemeal approach of worrying about one user and one database at 
 }
 ```
 
-### The world is changing: new requirements
+### The World is Changing: New Requirements
 
 > "Document databases are really cool… until you have to make a breaking change to the schema. Then it feels like “good luck with all that!” :D"
 >
@@ -381,7 +381,7 @@ But wait! We have not solved the problem of how to update existing todo items. I
 
 But the question remains: how do we accomplish this in practice? How do we actually run such a data migration?
 
-### Traditional server-side migration
+### Traditional Server-Side Migration
 
 We are now at a point where a new version of an application may be confronted with older documents in the system that it does not know how to handle. But this prospect does not scare us because there is a common practice that is used in this scenario, and one that you probably know well already. We will call this the *traditional server-side migration*.
 
@@ -412,13 +412,13 @@ This same strategy works with CouchDB as well. Let us roughly sketch out the mai
 This migration procedure is very common for the type of monolithic centralized setup we have described so far. It does not come without some [problems of it's own](https://about.futurelearn.com/blog/your-database-is-a-distributed-system) but overall it is a well established and reliable practice. Alas, this is not a viable solution anymore once we bring in some of the more challenging requirements we have omitted so far.
 
 
-## Fail fast, fail often
+## Fail Fast, Fail Often
 
 Failure tends to lead to success. When you fail with one approach, you can quickly develop new insights into a problem, and you can free your mind and pivot and try out alternatives. This process will often produce better results than sticking with one initial strategy could ever achieve. So we are going to fail in this part. In fact, we are going to fail a couple of times.
 
 As a first step we will bring back much of the complexity we have ignored so far. In this new context, we will be forced to look at more powerful migration strategies because our previous approaches are not viable anymore. In the spirit of this section, all the strategies discussed here will have serious drawbacks that should nevertheless prepare us well for a more systematic discussion that is coming up in the next section. Our primary goal for now is to develop a better understanding about the different types of problems that can arise in more complex scenarios.
 
-### Making the simple complex
+### Making the Simple Complex
 
 Up to this point the development of our todo app has been agile alright, but we never had to support offline capable clients or multiple clients that could run different versions of the software. That's about to change. Let's talk about offline first.
 
@@ -448,13 +448,13 @@ If we provide users not only with a web app but also with native clients then up
 
 In this more complex scenario we are now confronted with three formidable challenges: we want to support multiple clients running multiple app versions, we want them not to break when the network connection is unstable, and we want to develop our software incrementally and stay agile, pivoting and releasing new versions in response to user demand. How could this ever work, you wonder? Let's wonder together.
 
-### Traditional migrations fail
+### Traditional Migrations Fail
 
 Why can't we just reuse the traditional migration strategy that has worked well before and update all existing documents on the server? This would mean that we picked a single point in time where we updated all documents on the server to be compatible with the new data schema. The changes would then be replicated to the clients' local databases.
 
 This approach fails for a couple of reasons. Let's first consider the case where a web app may be offline thanks to our latest enhancements. Here's a chain of events that breaks the system: Haneen is using the web app, version one, in her browser right now. Because she is currently travelling through rural Germany she is editing todos in offline mode. She has just created a todo to pluck some flowers for her friend's birthday. Meanwhile we release the new version of the app and migrate all existing data on the server-side database. When she's back at home, Haneen's app synchronizes the recent changes. First, it sends the new flowers-todo to the server-side database, but the document has missed the migration. Secondly, the updated documents get replicated from the server-side CouchDB to her in-browser database, so all her local documents get updated. This may take a moment but we can assume we find a way to verify the update is complete before allowing the app to resume. Eventually the web app, which has all the latest features now, is ready to work. But what about the flowers-todo? Because it was created offline according to the previous version of the data schema, it has no `status` property and no `groupId` and is invalid according to the new schema. The new version of the app does not know how to deal with this old document. It might even break. Utter disaster.
 
-#### Saving traditional migrations by amending them?
+#### Saving Traditional Migrations by Amending Them?
 
 There is a way to address this particular problem, i.e. that we have performed a server-side migration and a few outdated documents are still around. The solution would have two parts:
 
@@ -467,7 +467,7 @@ As this discussion shows, there are times when you can get away with a tradition
 
 If there are multiple clients with different versions operating on the same data, the traditional migration strategy cannot be saved anymore. To see why it fails, consider another exemplary scenario: Basti is using the app, version one, as a web app and he has also installed it on his iPhone. Today is migration day so we update the documents on the server-side database and prepare to hand out the new version of the app. When Basti reloads the web site, he will get the new version of the app right away. But what about the iPhone app? Of course, all the updated data will be replicated to the iPhone's local database as well, but if Basti did not make sure to update the app immediately, it may not find any data to work with because we have effectively deleted all the old documents it is still depending upon and replaced them with new ones the app cannot handle. Whereas before we had new apps that are confronted with old data, we now have an old app that is not ready to handle new data. Utter disaster.
 
-#### Saving traditional migrations by moving them to the client?
+#### Saving Traditional Migrations by Moving Them to the Client?
 
 Is it possible that this problem arises because we perform the data migration centralized on the server-side database? If we update documents on the server and then synchronize the changes to old apps, it's no wonder they are breaking. What if we instead ran migrations directly on the clients? The setup could look like this: once a client updates to a new version, it pauses for a moment and runs the migration on its local database. When this is finished, it resumes operation and now works with the new data. An old app would simply not run the migration and continue to work with the old data.
 
@@ -475,7 +475,7 @@ This will fail as well, however, and for a very similar reason as before. Rememb
 
 The traditional migration approach, server-side or client-side, with or without a continuous update amendment, cannot be successful in our more ambitious scenario. We have to get creative and look for alternative solutions.
 
-### Searching for alternatives
+### Searching for Alternatives
 
 When we introduced the `isImportant` flag to our data schema we mentioned only passingly that old documents without this flag would still be valid. This was because an app could treat a missing flag as `false` and the todo item as not important by default. We didn't need a big migration for this change at all because by interpreting the existing data appropriately the *clients* were able to ensure the smooth introduction of a new feature. Perhaps we can take cues from this pleasant experience and have the applications themselves play a bigger role in data migrations.
 
@@ -535,17 +535,17 @@ So is there a way to maintain multiple versions of the data schema in parallel? 
 Wow, this investigation has gotten out of hands! It looks like we need a more structured approach to get a grip on this messy collection of problems. But rest assured that our efforts will pay off soon. We've seen some strategies fail, but we also understand better what we are up against. Plus we have collected a number of ideas and built a few tools in the process. Let's switch gears now and approach our discussion with a tad of rigorous discipline.
 
 
-## A taxonomy for reasoning about migrations
+## A Taxonomy for Reasoning about Migrations
 
 When it comes to schema migrations our task is to modify data of a certain format so that it matches new format requirements. This process is usually destructive: the old data is assumed to be obsolete after the migration and is eliminated during the migration process. But we are now dealing with a situation where multiple schema versions may have to exist in parallel because there can be multiple clients in a system that run different versions of some application software.
 
 It is time to approach this issue in an orderly fashion. To this end, we will propose a taxonomy for thinking about migration strategies that will take into account (1) where data is stored, (2) when it is being modified and (3) where this modification happens. This taxonomy is a kind of elaborate problem exposition and not yet a solution. We do have an opinion as to which approach works best in the scenario we have sketched out, but we are going to argue for that separately. For now, our goal is to take seriously the difficulties inherent to the migration problem, to lay out different angles for tackling those, and, most of all, to invite you, kind reader, to join us in a broader discussion of these issues.
 
-### Where is data being stored?
+### Where Is Data Being Stored?
 
 Up to this point, we have only talked about setups where one user has a single database for all their data. In our running example, this database has one server-side replica and multiple replicas on the client devices, but it is still a *single* database. In the migration strategies we have seen so far, there existed only a *single* version of a document at a time as well. When it came to dealing with offline-capable clients and maintaining multiple app versions, the traditional approaches failed exactly because there were document versions missing that some applications still depended upon.
 
-Maintaining multiple document versions in parallel can be achieved in two ways. First, multiple document versions can be stored in a *single* database *simultaneously*. The fact that the `_id`-attribute of a document must be unique means that we would have to adapt this property accordingly, for instance by keeping track of the version in the `_id` itself. As an example, our todo item documents could have `_ids` like `todo-item@1:ce2f71ee7db9d6decfe459ca9d000df5` and `todo-item@2:ce2f71ee7db9d6decfe459ca9d000df5` that carry information about the respective schema version. If we manange `_id`s carefully, it is possible to work with multiple document versions in a single database. Alternatively, each version of the data schema could have its own database. Instead of the standard *couch-per-user* approach this would imply that we set up multiple *couches-per-user*, one for each schema version.
+Maintaining multiple document versions in parallel can be achieved in two ways. First, multiple document versions can be stored in a *single* database *simultaneously*. The fact that the `_id`-attribute of a document must be unique means that we would have to adapt this property accordingly, for instance by keeping track of the version in the `_id` itself. As an example, our todo item documents could have `_ids` like `todo-item@1:ce2f71ee7db9d6decfe459ca9d000df5` and `todo-item@2:ce2f71ee7db9d6decfe459ca9d000df5` that carry information about the respective schema version. If we manange `_id`s carefully, it is possible to work with multiple document versions in a single database. Alternatively, each version of the data schema could have its own database. Instead of the standard *db-per-user* approach this would imply that we set up multiple *dbs-per-user*, one for each schema version.
 
 These new options, together with the traditional approach, form the three values along the *where-to-store-the-data* dimension, as we have basically three options available, which we will try to furnish with telling labels:
 
@@ -555,7 +555,7 @@ These new options, together with the traditional approach, form the three values
 
 These three alternatives constitute the first dimension of the taxonomy we are building up. Next we turn our attention to possible migration mechanics.
 
-### When is data being modified?
+### When Is Data Being Modified?
 
 From our previous discussion we can identify two different mechanisms to perform migrations. The first one is the traditional approach where all data is modified whether or not this is actually required. We have seen that this could happen in a *one-shot* fashion at a single point in time where all existing documents are updated at once, or *continuously* while new documents are coming in. The essential tools to implement this type of migration are *tasks* that can be executed by the responsible services or workers and *hooks* that make it possible to intercept the data flow and perform document updates as soon as possible.
 
@@ -567,7 +567,7 @@ We have also already encountered the second migration mechanism in the form of a
 A major difference between the two approaches is that lazy migrations have to intercept the read (and possibly the write) process of the applications while eager migrations can happen independently of any application behavior.
 
 
-### Where is data being modified?
+### Where Is Data Being Modified?
 
 As a third and last dimension of a useful taxonomy we suggest to take into account whether migrations are performed on the server-side database or on the client. Traditional migrations are only run on the server, but we have already started to consider alternatives in the previous discussions.
 
@@ -583,7 +583,7 @@ We have now established three dimensions of a taxonomy to help us reason about m
 Even though we cannot discuss these options here we have built up a vocabulary for communicating about the different approaches. We can, for instance, distinguish the traditional migrations, which are *eager server-side single-version migrations*, from the *lazy client-side single-version migrations* we have named *adapter migrations* in the previous part. Equipped with our new tools, lets talk a little bit about what to keep in mind when developing new migration strategies, before we wrap up this article with a summary of the things we've gone through.
 
 
-## Developing migration strategies
+## Developing Migration Strategies
 
 > "The internet is broken" - Andi Pieper
 
@@ -603,7 +603,7 @@ Every software system is built in a particular context with specific requirement
 
 *Conflict safety*. We have seen how migration processes that update documents in many places, e.g. on multiple clients in parallel, can create conflicts. Depending on your project you might be able to come up with very efficient conflict resolution mechanisms or you decide that the number of occurring conflicts will be manageable. But keep in mind that, at least for CouchDB, larger amounts of unhandled conflicts in a document's history will lead to severe performance penalties.
 
-#### Good practices
+#### Good Practices
 
 Throughout our discussion we have collected a number of recommendations and good practices when working with schemas and document databases in general and CouchDB in particular. Let's remind us of some of these learnings before concluding our discussion.
 
@@ -617,7 +617,7 @@ Throughout our discussion we have collected a number of recommendations and good
 
 *Prepare for dropping legacy support.* If you plan to drop support of legacy apps at one point, give them a chance to know they are outdated. If old apps know what to do when they are no longer supported gives them a chance to handle the transition more gracefully.
 
-#### Stay in touch
+#### Stay in Touch
 
 Although we have said what we had to say here, the real work is only just about to begin. Our main goal has been to open up a discussion about a really hard problem, to prepare the ground for exploring different solutions to it, and to illustrate some of the intricacies and complexities of the situation we are confronted with.
 
