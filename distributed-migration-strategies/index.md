@@ -24,7 +24,7 @@ published {{ page.publishedAt | date: '%B %d, %Y' }}, last updated {{ page.lastU
 
 > "Software development is change management" - Ashley Williams, [A Brief History of Modularity](https://www.youtube.com/watch?v=vypCsVm5z28) at JSConf EU 2017
 
-Gööood software is constantly changing. Users will inevitably suggest improvements and make change requests. The only software that does not change over time is software that nobody uses. That's the first part of our problem. The second part is the sort of software we would like to be writing: offline-capable, decentralized and scalable systems that can support and synchronize a whole range of different clients.
+Good software is constantly changing. Users will inevitably suggest improvements and make change requests. The only software that does not change over time is software that nobody uses. That's the first part of our problem. The second part is the sort of software we would like to be writing: offline-capable, decentralized and scalable systems that can support and synchronize a whole range of different clients.
 
 There are separate solutions and best practices for both of these challenges. Agile methodologies integrate readiness for change into the very process of developing software, allowing us to have working software in front of customers early on and adapting it based on feedback. There also exist tools and technologies that support offline-capable multi-client applications. But as it turns out it is not so easy to bring those requirements together. The cause of all the trouble is one of those parts of the system that is usually friendly and not as attention-craving as shiny front-ends or massive costs of operating server clusters: the data schema. The data schema?
 
