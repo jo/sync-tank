@@ -14,11 +14,13 @@ permalink: /chesterfield-migration/
 1. this unordered seed list will be replaced by toc as unordered list
 {:toc}
 
-## Chesterfield Migration
+## Introduction
 
-We have come far. We now share a common vocabulary and a systematic understanding of distributed migration strategies, we have seen when they are necessary and when you might get away without them. In this section we are going to take a good look at one particular strategy that can work well in practice. We will not shy away from addressing a range of problems and difficulties that emerge when this approach is implemented on top of CouchDB and we will propose a set of solutions for them, so be prepared for a more detailed technical discussion.
+Migrating data is not trivial. Migrating distributed data that is needed in lots of places at the same time can quickly become a formidable challenge. In a [recent article](/distributed-migration-strategies/), we have addressed many of the complications that schema migrations in distributed systems may face. Now it is time to go beyond the problem description and start discussing potential solutions.
 
-The strategy we are going to present is not the only reasonable choice as should be clear from the previous discussion. Still we believe that among the options we discussed it allows for a clean and maintainable implementation given that we want to support the complex scenario we have built up in the previous sections. To recap: we demand that our system support offline-capable applications and clients on multiple platforms that require different schema versions of application data, all the while providing full backwards-compatibility for older apps or services and enabling agile development.
+The solution we are presenting here is an *eager server-side multi-version migration strategy*. If you are not familiar with this terminology, you may want to revisit the [migration taxonomy](/distributed-migration-strategies/#a-taxonomy-for-reasoning-about-migrations) we have introduced previously. But if you decide to read on, rest assured that we will cover all aspects necessary to understand the strategy in this article.
+
+In what follows, we will first build up a sufficiently complex use case based on a todo application. This article is not a tutorial, but we feel that a good example will help us bring across some points more concisely. Next, we will talk about CouchDB. This is our database of choice and we want to take a closer look at how it supports what we want to do. In particular, we need to think about how to design the schema so that it can support the operations we want to perform. With these preliminaries out of the way, we will then invite you to a detailled technical discussion about *transformers*, the main work horse of our migration strategy, before concluding our discussion with a summary of what we have learned.
 
 <figure>
   <img src="/chesterfield-migration/images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
@@ -30,22 +32,12 @@ The strategy we are going to present is not the only reasonable choice as should
   </figcaption>
 </figure>
 
-In order to have a memorable reference, we are going to brand our strategy as *chesterfield migration*. A chesterfield is a type of luxurious couch, and we feel this is an appropriate term as we are going to describe an approach that meets all kinds of differents requirements comfortably - and is based upon CouchDB.
+In order to have a memorable reference, we are going to brand our strategy as *chesterfield migration*. A chesterfield is a type of luxurious couch, and we feel this is an appropriate term as we are going to describe an approach that meets all kinds of challenging requirements comfortably – and is based upon CouchDB.
 
-### We are not alone
 
-The solution we discuss here does not come out of thin air. It has emerged from a longer discussion with contributers from different institutions and the offline-first community. To give credit where credit is due, we would like to begin with a very brief recap of the background of our approach.
+## An eager server-side multi-version migration strategy
 
-During his time with eHealth Africa Johannes began to think about the problem of distributed migrations together with Jan Lehnardt. When he later joined immmr, the company was still on its way to developing a market-ready version of its first product. At this time, there were a lot of concerns about the viability of schema migrations. The only real alternative to migrations - getting everything right from the start - has some problems of its own so Johannes and Ben Kampmann generated several ideas for migration strategies, from which the approach we are going to present here emerged as a final result.
-
-<figure>
-  <img src="/chesterfield-migration/images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
-  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
-</figure>
-
-The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an excellent opportunity to discuss the strategy with members of the offline-first community and we gratefully appreciate the thoughtful comments from Gregor Martinus, Bradley Holt, Martin Stadler (a former immmr-colleage!) and others. These discussions gave us a lot more confidence that we have found a robust approach that can persist through a number of challenging edge-cases.
-
-### An eager server-side multi-version migration strategy
+* ? We want to build large systems that support offline-capable applications and clients on multiple platforms. Those clients may require different schema versions of application data. Of course, we want to provide full backwards-compatibility for older apps or services and enable agile development.
 
 The chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
 
@@ -127,7 +119,7 @@ The third major version that was just introduced requires todo items to have a `
 
 These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes made with newer apps down to support older apps. Apart from the actual migration logic this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look at these two tasks.
 
-#### Replication channels
+### Replication channels
 
 Chesterfield is a *server-side* migration. This means that apps will replicate documents from their local databases to the server-side database where *transformers* will produce all relevant versions of the documents that will then be synchronized across the system. If we dig a little further though, we will find that not *all* versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic and storage if we can prevent newer clients from receiving older documents.
 
@@ -159,7 +151,7 @@ There are a few noteworthy aspects about this selector. We said it's supposed to
 
 As a last point we'd like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding status document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
 
-#### Multiple schema versions in a single database
+### Multiple schema versions in a single database
 
 After successful replication clients will have all necessary data in their local databases, although potentially in multiple versions. This raises the question of how parallel schema versions can be managed within a single database.
 
@@ -186,11 +178,11 @@ These three guiding principles - reflecting the document version in the identifi
 
 Before moving on to see how the transformer engine works under the hood we would like to address a concern you may have regarding the size of local databases. Memory is still a somewhat scarce resource especially for mobile clients. Would the approach we have sketched out here not bloat client databases unnecessarily by keeping legacy schema versions around when they are in fact no longer needed? As user data builds up, this may indeed become a problem at some point. If that's the case, don't despair, as there are ways to perform some data compaction. We suggest creating an additional local database on the client and running a filtered replication that replicates only relevant document versions. After that, switch over to the new database and discard the old one alongside all legacy schema versions.
 
-### Transformer modules
+## Transformer modules
 
 We are finally ready to take a close look at transformer modules, the main workhorse of our migration strategy. Transformer modules, or transformers for short, live on the server, they are responsible for noticing when a document has to be migrated and they create and persist new document versions. These are three different tasks - listening, creating, and persisting - and our transformers will be composed of three corresponding components. To be more precise, each transformer module will consist of a *registry*, a *migration logic unit*, and an *update handler*. Let's introduce each of those in turn and see what considerations have led us to design them the way we did.
 
-#### The registry
+### The registry
 
 Transformers are supposed to migrate documents once they are replicated to the server-side database. To figure out when to get active, transformers can inspect CouchDB's `_changes`-endpoint (either directly or via a helpful service that creates a changes feed for this purpose) to get a rough idea of what's happening on the database. In particular, they can find out which document ids have been involved in any database event. Because we designed document ids to reflect the document schema transformers have a way of knowing when to perform a migration: every time a database event is happening, a transformer can check if the document involved is of the type and version it is responsible for. And how do transformers know which documents are their responsibility? That's what the registry is for.
 
@@ -217,7 +209,7 @@ The solution to this problem is a *target-oriented* responsibility design. Trans
 
 The impact of this new perspective will become even clearer once we discuss the inner workings of the transformer's *migration logic unit* in the next section. But before we go there, now is a good time for a short aside on the number of transformers we will have to write and maintain in order for this approach to work.
 
-#### Aside: a rough and ready complexity analysis
+### Aside: a rough and ready complexity analysis
 
 Migrating between all existing (or at least all supported) versions of a data schema might raise problems of maintainability through the sheer number of transformers necessary. A bit of accounting can help us get the discussion started. Say we start off with a single document type that is in version `v1`. We now update the schema to `v2`, so we will need to provide two transformers, one that generates `v1` documents from `v2` and one that generation `v2` documents from `v1`. After the next update to `v3` there are now already *six* transformers necessary to support conversion from every version to every other. In general, from every schema version that has ever existed in the system there may still be some documents around. So if we want to support all app versions we will have to provide as many transformers as there are ordered pairs, meaning $n (n - 1)$ transformers if the current data schema has version `n`. That's $n^2 - n$ - the amount of transformers grows quadratically with the number of supported schema versions! And we have only just considered a single document type.
 
@@ -237,7 +229,7 @@ A data schema in the wild can easily accommodate dozens of document types. In ou
 
 But for now it's time to move on to the second part of our transformers where the actual migration logic gets implemented.
 
-#### The migration logic unit
+### The migration logic unit
 
 ```
 - schema knowledge: how to get it, what is needed
@@ -249,7 +241,7 @@ But for now it's time to move on to the second part of our transformers where th
 ```
 
 
-#### The update handler
+### The update handler
 
 ```
 - MLU outputs current document, but may create conflict
@@ -283,6 +275,20 @@ Move this content to Appendix
   - not easy to drop (purge) old versions
 ```
 
+## Summary and outlook
+
+### We are not alone
+
+The solution we discuss here does not come out of thin air. It has emerged from a longer discussion with contributers from different institutions and the offline-first community. To give credit where credit is due, we would like to begin with a very brief recap of the background of our approach.
+
+During his time with eHealth Africa Johannes began to think about the problem of distributed migrations together with Jan Lehnardt. When he later joined immmr, the company was still on its way to developing a market-ready version of its first product. At this time, there were a lot of concerns about the viability of schema migrations. The only real alternative to migrations - getting everything right from the start - has some problems of its own so Johannes and Ben Kampmann generated several ideas for migration strategies, from which the approach we are going to present here emerged as a final result.
+
+<figure>
+  <img src="/chesterfield-migration/images/offline-camp-migration-session.jpg" alt="Migration session at Offline Camp 2017 Berlin" />
+  <figcaption>Foto by Gregor Martinus: Migration session at Offline Camp 2017 Berlin</figcaption>
+</figure>
+
+The [offline camp berlin 2017](http://offlinefirst.org/camp/berlin/) provided an excellent opportunity to discuss the strategy with members of the offline-first community and we gratefully appreciate the thoughtful comments from Gregor Martinus, Bradley Holt, Martin Stadler (a former immmr-colleage!) and others. These discussions gave us a lot more confidence that we have found a robust approach that can persist through a number of challenging edge-cases.
 
 
 

@@ -17,6 +17,8 @@ Syncing data is also a technical problem. And not a small one. The articles you 
 
 * [Distributed Migration Strategies](/distributed-migration-strategies/). Schema migrations are a common task in any kind of application development. But migrating data in distributed systems poses a number of formidable challenges. You can find a detailed problem exposition, a collection of good practices when working with document databases, and an invitation to join the discussion, in our opening article.
 
+* [Chesterfield](/chesterfield-migration/) is under construction.
+
 
 #### About Sync Tank
 
