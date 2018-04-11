@@ -167,7 +167,7 @@ These are the three major schema versions that we have to maintain in parallel. 
 
 You know by now that the chesterfield migration is an *eager server-side multi-version migration*. That is quite a mouthful, so let's break it down and see what it means in practice.
 
-* **Server-side** means that the transformation of documents happens on the server-side and is not handled by the clients. This requires us to set up a *backend service* responsible for performing the migration logic. In our case, the work will be done by what we call *transformer modules*.
+* **Server-side** means that the transformation of documents is not performed by the clients but by server-side processes. This requires us to set up *backend service* that know how to handle the migration logic. In our case, the work will be done by what we call *transformer modules*.
 * **Eager** refers to the fact that migrations are performed as soon as documents are available. To this end, we will listen to CouchDB's `_changes`-endpoint and react when new document update information is coming in.
 * **Multi-version** means that multiple document versions will be maintained in parallel, allowing us to support multiple application versions at the same time.
 
