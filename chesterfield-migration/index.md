@@ -186,7 +186,7 @@ You know by now that the chesterfield migration is an *eager server-side multi-v
 In the next section, we will give our undivided attention to transformer modules. But before that, let us spend some time thinking through the *multi-version* aspect. Two questions in particular will concern us in the following: How can we control which version of the data gets distributed to which part of the system? And how can we manage multiple versions of the same documents in a single database?
 
 
-### Replication channels
+### Replication Channels
 
 We want to maintain multiple versions of the same data in parallel because we would like to provide backwards compatibility for older applications. This is why we migrate data on the server and distribute updates across the system. If we dig a little further though, we will find that not *all* document versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic and storage if we can prevent newer clients from receiving older documents.
 
@@ -220,7 +220,7 @@ There are a few noteworthy aspects about this selector. We said it's supposed to
 
 As a last point we'd like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding group document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
 
-### Multiple schema versions in a single database
+### Multiple Schema Versions in a Single Database
 
 After successful replication clients will have all necessary data in their local databases, although potentially in multiple versions. This raises the question of how parallel schema versions can be managed within a single database.
 
