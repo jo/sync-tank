@@ -1,5 +1,10 @@
 ---
+title: Chesterfield Migration
 layout: default
+version: 1.0.0-rc1
+publishedAt: Wed 11. Apr 13:16:31 CEST 2018
+# in vim `:r! date`
+lastUpdatedAt: Wed 11. Apr 13:16:54 CEST 2018
 permalink: /chesterfield-migration/
 ---
 
@@ -7,6 +12,8 @@ permalink: /chesterfield-migration/
 
 ## An eager server-side multi-version distributed migration strategy
 {:.no_toc}
+
+published {{ page.publishedAt | date: '%B %d, %Y' }}, last updated {{ page.lastUpdatedAt | date: '%B %d, %Y' }}
 
 ## Table of contents
 {:.no_toc}
@@ -43,12 +50,12 @@ We want to build large systems featuring offline-capable applications and client
 
 In the beginning, there are only todos. We start with a `db-per-user` setup where users have all their todo items in their own database. CouchDB mananges data synchronization across multiple clients, and the schema only comprises the most basic features every todo item exhibits. In particular, each todo item is required to have a `title` and an `isDone` property. This is version `1.0.0` of the schema which only consists of version `1.0.0` of todo item documents.
 
-By popular request we decide to add an optional `isImportant` property to todo items, and we also introduce a `settings` document to allow users to switch between different color themes. These changes can be accomodated into the schema without breaking existing behavior, so they are two new *features*. We can release these new versions, and new app versions that work with them, without having to migrate existing data at all. At this point, our schema manifest for version `1.2.0` looks like this:
+By popular request we decide to add an optional `isImportant` property to todo items, and we also introduce a `settings` document to allow users to switch between different color themes. These changes can be accomodated into the schema without breaking existing behavior, so they are two new *features*. We can release these new versions, and new app versions that work with them, without having to migrate existing data at all. At this point, our schema manifest for version `1.1.0` looks like this:
 
 ```json
 {
   "name": "todo-app-schema",
-  "version": "1.2.0",
+  "version": "1.1.0",
   "dependencies": {
     "settings": "^1.0.0",
     "todo-item": "^1.1.0"
@@ -65,7 +72,7 @@ Later on, when we discuss the more intricate details of how to migrate between d
   "schema": "todo-item",
   "version": 1,
   "title": "Compare apples to oranges",
-  "isDone": false,
+  "isDone": true,
   "isImportant": true,
   "createdAt": "2018-04-01T00:00:00.000Z"
 }
@@ -80,11 +87,11 @@ Later on, when we discuss the more intricate details of how to migrate between d
 }
 ```
 
-At this point, our todo application is out on the market. Data schema `1.2.0` supports various versions of iOS and Android apps, webapps, and service workers that form a big software ecosystem. Some of these clients have offline-capabilities, which implies that they are not easily accessible for maintenance and might miss updates. So far, this is not a huge problem as far as the schema is concerned. Unfortunately, we are just about to introduce a breaking schema change.
+At this point, our todo application is out on the market. Data schema `1.1.0` supports various versions of iOS and Android apps, webapps, and service workers that form a big software ecosystem. Some of these clients have offline-capabilities, which implies that they are not easily accessible for maintenance and might miss updates. So far, this is not a huge problem as far as the schema is concerned. Unfortunately, we are just about to introduce a breaking schema change.
 
 ### Version Two
 
-Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `completed`, etc. To account for this change, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`. Let's take a look at the manifest for the updated schema.
+Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `done`, etc. To account for this change, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`. Let's take a look at the manifest for the updated schema.
 
 ```json
 {
@@ -97,7 +104,7 @@ Because a simple `isDone` flag is not very expressive, we decide to replace it w
 }
 ```
 
-As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: false` to a `status` of `active`.
+As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: true` to a `status` of `done,`.
 
 ```json
 {
@@ -105,89 +112,60 @@ As you can see, we had to increase the major version of the todo item schema - a
   "schema": "todo-item",
   "version": 2,
   "title": "Compare apples to oranges",
-  "status": "active",
+  "status": "done",
   "isImportant": true,
   "createdAt": "2018-04-01T00:00:00.000Z"
 }
 ```
 
-### Version 3
+### Version Three
 
-...
-
-
-This setup is rather complex, involving a number of new ideas and several moving pieces. It will therefore benefit our discussion to take a moment and illustrate the situation using our working example. In the previous sections we have developed a simple todo app that has passed through a few iterations by now. The schema has evolved to accomodate an item's `isImportant` and `status` values. Because our current problem is quite involved, we would like to introduce yet another feature that comes with yet another breaking schema change, so that there is a bit more material to work with.
-
-```cucumber
-As an app user
-I want to group todo items
-so that I can stay organized even when there are a lot of things to do.
-```
-
-To keep things simple, we will require each todo item to belong to exactly one group. This association can be established via an additional `group`-attribute that stores the respective group name for each todo item. If no particular group is chosen by the user, items should be assigned to a group named "default". You could argue that this didn't have to be a *breaking* schema change, that it would be possible for apps to handle older items without `group`-attributes as though they were *default* items. But let's assume for the sake of better illustration that in our case this is not good enough for app developers. They *need* every todo item to state its group. And as we argued that app expectations define a data schema to begin with, so they also define what counts as a breaking change. To make a long story short: we need to *require* a `group`-attribute for each todo item, and we need to go over all existing items and add them to the default group. So we indeed need to run another migration.
-
-For completion, here's a valid todo item document according to version three that stores its associated group. Notice how we keep track of the document version in the `_id`, an addition we will come back to shortly.
-
-```json
-{
-  "_id": "todo-item:c2b2dc0a123d27752bc08ad39d000bbe:v:3",
-  "schema": "todo-item",
-  "version": 3,
-  "title": "Add all todo items to the default group.",
-  "group": "default",
-  "createdAt": "2018-31-01T14:49:12.071Z"
-}
-```
-
-The grouping feature has forced us to introduce another major schema version. We are now dealing with three schema versions, and accordingly we need to maintain all three of them in parallel, in order to support all the apps out there that have never been updated. The following listings give a quick overview over the three schema versions using the manifest-notation introduced in the schema-section above.
-
-The first major version started out with the bare todo items and introduced `settings`-documents and the `isImortant`-flag as two features:
-
-```json
-{
-  "name": "todo-app",
-  "version": "1.2.0",
-  "dependencies": {
-    "settings": "^1.0.0",
-    "todo-item": "^1.1.0"
-  }
-}
-```
-
-The second major version introduced a separate `status`-document while removing the `isDone`-property from todo items:
-
-```json
-{
-  "name": "todo-app",
-  "version": "2.0.0",
-  "dependencies": {
-    "settings": "^1.0.0",
-    "todo-item": "^2.0.0",
-    "todo-item-status": "^1.0.0"
-  }
-}
-```
-
-The third major version that was just introduced requires todo items to have a `group`-property, hence the todo item schema had to be updated once more:
+The final feature we will discuss is sorting todo items into groups. To this end, we introduce a new document type, a `group` document, and require todo items to have a `groupId` property that links them to their respecive group. This brings us to version `3.0.0` of our schema.
 
 ```json
 {
   "name": "todo-app",
   "version": "3.0.0",
   "dependencies": {
+    "group": "^1.0.0",
     "settings": "^1.0.0",
-    "todo-item": "^3.0.0",
-    "todo-item-status": "^1.0.0"
+    "todo-item": "^3.0.0"
   }
 }
 ```
 
-These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes made with newer apps down to support older apps. Apart from the actual migration logic this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look at these two tasks.
+Introducing a new document type on its own does not constitute a breaking change as we have seen when adding the `settings` document above. The reason is that no application can *require* a document to be present - documents may always come in late in the replication process. Apps must always be prepared to deal with missing documents.
+
+Adding another required property, however, *is* a breaking schema change, just like adding the required `status` was. Once again, we need to increase the major version number of the todo item schema after adding the `groupId`. As consequence, the whole schema's version must be increased. The following listings show the updated todo item with its new group.
+
+```json
+{
+  "_id": "todo-item:1b8ee6240d8b5143884127d3408b1a85",
+  "schema": "todo-item",
+  "version": 3,
+  "title": "Compare apples to oranges",
+  "status": "done",
+  "isImportant": true,
+  "groupId": "e302f183a96194f7d19dce0eaf5e3cf8",
+  "createdAt": "2018-04-01T00:00:00.000Z"
+}
+```
+
+```json
+{
+  "_id": "group:e302f183a96194f7d19dce0eaf5e3cf8",
+  "schema": "group",
+  "version": 1,
+  "name": "Things I want to do before retiring"
+}
+```
+
+These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes made with newer apps down to support older apps. Apart from the actual migration logic, this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look at these two tasks.
 
 
-## Preliminaries
+## Handling Distributed Data
 
-The chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
+You know by now that the chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
 
 <figure class="diagram" id="figure-3">
   <img src="/chesterfield-migration/images/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
@@ -198,6 +176,7 @@ The chesterfield migration is an *eager server-side multi-version migration*. Ou
     </span>
   </figcaption>
 </figure>
+
 
 ### Replication channels
 
