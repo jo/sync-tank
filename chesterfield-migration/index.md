@@ -16,11 +16,11 @@ permalink: /chesterfield-migration/
 
 ## Introduction
 
-Migrating data is not trivial. Migrating distributed data that is needed in lots of places at the same time can quickly become a formidable challenge. In a [recent article](/distributed-migration-strategies/), we have addressed many of the complications that schema migrations in distributed systems may face. Now it is time to go beyond the problem description and start discussing potential solutions.
+Migrating data is not trivial. Migrating distributed data that is needed in lots of places at the same time can quickly become a formidable challenge. In a [recent article](/distributed-migration-strategies/), we have addressed many of the complications that schema migrations in distributed systems may face. In this article, we want to go beyond the problem description and start discussing potential solutions.
 
-The solution we are presenting here is an *eager server-side multi-version migration strategy*. If you are not familiar with this terminology, you may want to revisit the [migration taxonomy](/distributed-migration-strategies/#a-taxonomy-for-reasoning-about-migrations) we have introduced previously. But if you decide to read on, rest assured that we will cover all aspects necessary to understand the strategy in this article.
+The strategy we are presenting here is an *eager server-side multi-version migration*. If you are not familiar with this terminology, you may want to revisit the [migration taxonomy](/distributed-migration-strategies/#a-taxonomy-for-reasoning-about-migrations) we have introduced previously. But if you decide to read on, rest assured that we will cover all aspects necessary to follow the discussion in this article.
 
-In what follows, we will first build up a sufficiently complex use case based on a todo application. This article is not a tutorial, but we feel that a good example will help us bring across some points more concisely. Next, we will talk about CouchDB. This is our database of choice and we want to take a closer look at how it supports what we want to do. In particular, we need to think about how to design the schema so that it can support the operations we want to perform. With these preliminaries out of the way, we will then invite you to a detailled technical discussion about *transformers*, the main work horse of our migration strategy, before concluding our discussion with a summary of what we have learned.
+In what follows, we will first build up a sufficiently complex use case for distributed migrations based on a todo application. This article is not a tutorial, but we feel that a good example will help us bring across some points more concisely. Next, we will talk about CouchDB. This is our database of choice and we want to take a closer look at how it supports what we want to do. In particular, we need to think about how to design the schema so that it can support the operations we want to perform. With these preliminaries out of the way, we will then invite you to a detailled technical discussion about *transformers*, the main work horse of our migration strategy, before concluding our discussion with a summary of what we have learned.
 
 <figure>
   <img src="/chesterfield-migration/images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
@@ -35,21 +35,86 @@ In what follows, we will first build up a sufficiently complex use case based on
 In order to have a memorable reference, we are going to brand our strategy as *chesterfield migration*. A chesterfield is a type of luxurious couch, and we feel this is an appropriate term as we are going to describe an approach that meets all kinds of challenging requirements comfortably – and is based upon CouchDB.
 
 
-## An eager server-side multi-version migration strategy
+## Revisiting an example application
 
-* ? We want to build large systems that support offline-capable applications and clients on multiple platforms. Those clients may require different schema versions of application data. Of course, we want to provide full backwards-compatibility for older apps or services and enable agile development.
+We want to build large systems featuring offline-capable applications and clients on multiple platforms. We want to support clients that require different schema versions of application data. We want to provide backwards-compatibility while staying agile. Because it is easy to get lost in a complex scenario like this, we would like to describe an example use case that brings all these requirements together. In this section, you will find a concise summary of the [example todo application](/distributed-migration-strategies/#setting-the-stage-a-toy-problem) we have designed in our introductory article. Feel free to skip this section if the setup is fresh in your memory, or read on for a quick refresher of how the schema evolved across the different versions of the app.
 
-The chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
+### Version One
 
-<figure class="diagram" id="figure-3">
-  <img src="/chesterfield-migration/images/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
-  <figcaption>
-    <b>Figure 3: Chesterfield migration.</b>
-    <span>
-      Documents exist in multiple versions in order to support multiple application versions through a single database. Transformers are the engines that perform up and down migrations.
-    </span>
-  </figcaption>
-</figure>
+In the beginning, there are only todos. We start with a `db-per-user` setup where users have all their todo items in their own database. CouchDB mananges data synchronization across multiple clients, and the schema only comprises the most basic features every todo item exhibits. In particular, each todo item is required to have a `title` and an `isDone` property. This is version `1.0.0` of the schema which only consists of version `1.0.0` of todo item documents.
+
+By popular request we decide to add an optional `isImportant` property to todo items, and we also introduce a `settings` document to allow users to switch between different color themes. These changes can be accomodated into the schema without breaking existing behavior, so they are two new *features*. We can release these new versions, and new app versions that work with them, without having to migrate existing data at all. At this point, our schema manifest for version `1.2.0` looks like this:
+
+```json
+{
+  "name": "todo-app-schema",
+  "version": "1.2.0",
+  "dependencies": {
+    "settings": "^1.0.0",
+    "todo-item": "^1.1.0"
+  }
+}
+```
+
+Later on, when we discuss the more intricate details of how to migrate between different document versions, we will need concrete examples. In preparation for this discussion, the following listings show a full todo item and settings document respectively.
+
+
+```json
+{
+  "_id": "todo-item:1b8ee6240d8b5143884127d3408b1a85",
+  "schema": "todo-item",
+  "version": 1,
+  "title": "Compare apples to oranges",
+  "isDone": false,
+  "isImportant": true,
+  "createdAt": "2018-04-01T00:00:00.000Z"
+}
+```
+
+```json
+{
+  "_id": "settings",
+  "schema": "settings",
+  "version": 1,
+  "color": "#e20074"
+}
+```
+
+At this point, our todo application is out on the market. Data schema `1.2.0` supports various versions of iOS and Android apps, webapps, and service workers that form a big software ecosystem. Some of these clients have offline-capabilities, which implies that they are not easily accessible for maintenance and might miss updates. So far, this is not a huge problem as far as the schema is concerned. Unfortunately, we are just about to introduce a breaking schema change.
+
+### Version Two
+
+Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `completed`, etc. To account for this change, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`. Let's take a look at the manifest for the updated schema.
+
+```json
+{
+  "name": "todo-app",
+  "version": "2.0.0",
+  "dependencies": {
+    "settings": "^1.0.0",
+    "todo-item": "^2.0.0"
+  }
+}
+```
+
+As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: false` to a `status` of `active`.
+
+```json
+{
+  "_id": "todo-item:1b8ee6240d8b5143884127d3408b1a85",
+  "schema": "todo-item",
+  "version": 2,
+  "title": "Compare apples to oranges",
+  "status": "active",
+  "isImportant": true,
+  "createdAt": "2018-04-01T00:00:00.000Z"
+}
+```
+
+### Version 3
+
+...
+
 
 This setup is rather complex, involving a number of new ideas and several moving pieces. It will therefore benefit our discussion to take a moment and illustrate the situation using our working example. In the previous sections we have developed a simple todo app that has passed through a few iterations by now. The schema has evolved to accomodate an item's `isImportant` and `status` values. Because our current problem is quite involved, we would like to introduce yet another feature that comes with yet another breaking schema change, so that there is a bit more material to work with.
 
@@ -118,6 +183,21 @@ The third major version that was just introduced requires todo items to have a `
 ```
 
 These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes made with newer apps down to support older apps. Apart from the actual migration logic this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look at these two tasks.
+
+
+## Preliminaries
+
+The chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
+
+<figure class="diagram" id="figure-3">
+  <img src="/chesterfield-migration/images/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
+  <figcaption>
+    <b>Figure 3: Chesterfield migration.</b>
+    <span>
+      Documents exist in multiple versions in order to support multiple application versions through a single database. Transformers are the engines that perform up and down migrations.
+    </span>
+  </figcaption>
+</figure>
 
 ### Replication channels
 
@@ -209,7 +289,7 @@ The solution to this problem is a *target-oriented* responsibility design. Trans
 
 The impact of this new perspective will become even clearer once we discuss the inner workings of the transformer's *migration logic unit* in the next section. But before we go there, now is a good time for a short aside on the number of transformers we will have to write and maintain in order for this approach to work.
 
-### Aside: a rough and ready complexity analysis
+#### Aside: a rough and ready complexity analysis
 
 Migrating between all existing (or at least all supported) versions of a data schema might raise problems of maintainability through the sheer number of transformers necessary. A bit of accounting can help us get the discussion started. Say we start off with a single document type that is in version `v1`. We now update the schema to `v2`, so we will need to provide two transformers, one that generates `v1` documents from `v2` and one that generation `v2` documents from `v1`. After the next update to `v3` there are now already *six* transformers necessary to support conversion from every version to every other. In general, from every schema version that has ever existed in the system there may still be some documents around. So if we want to support all app versions we will have to provide as many transformers as there are ordered pairs, meaning $n (n - 1)$ transformers if the current data schema has version `n`. That's $n^2 - n$ - the amount of transformers grows quadratically with the number of supported schema versions! And we have only just considered a single document type.
 
