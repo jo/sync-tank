@@ -46,7 +46,7 @@ In order to have a memorable reference, we are going to brand our strategy as *c
 
 We want to build large systems featuring offline-capable applications and clients on multiple platforms. We want to support clients that require different schema versions of application data. We want to provide backwards-compatibility while staying agile. Because it is easy to get lost in a complex scenario like this, we would like to describe an example use case that brings all these requirements together. In this section, you will find a concise summary of the [example todo application](/distributed-migration-strategies/#setting-the-stage-a-toy-problem) we have designed in our introductory article. Feel free to skip this section if the setup is fresh in your memory, or read on for a quick refresher of how the schema evolved across the different versions of the app.
 
-### Version One
+### Version One: Starting Simple
 
 In the beginning, there are only todos. We start with a `db-per-user` setup where users have all their todo items in their own database. CouchDB mananges data synchronization across multiple clients, and the schema only comprises the most basic features every todo item exhibits. In particular, each todo item is required to have a `title` and an `isDone` property. This is version `1.0.0` of the schema which only consists of version `1.0.0` of todo item documents.
 
@@ -68,7 +68,7 @@ Later on, when we discuss the more intricate details of how to migrate between d
 
 ```json
 {
-  "_id": "todo-item:1b8ee6240d8b5143884127d3408b1a85",
+  "_id": "todo-item@1:ab8ee6240d8b5143884127d3408b1a85",
   "schema": "todo-item",
   "version": 1,
   "title": "Compare apples to oranges",
@@ -80,7 +80,7 @@ Later on, when we discuss the more intricate details of how to migrate between d
 
 ```json
 {
-  "_id": "settings",
+  "_id": "settings@1",
   "schema": "settings",
   "version": 1,
   "color": "#e20074"
@@ -89,13 +89,13 @@ Later on, when we discuss the more intricate details of how to migrate between d
 
 At this point, our todo application is out on the market. Data schema `1.1.0` supports various versions of iOS and Android apps, webapps, and service workers that form a big software ecosystem. Some of these clients have offline-capabilities, which implies that they are not easily accessible for maintenance and might miss updates. So far, this is not a huge problem as far as the schema is concerned. Unfortunately, we are just about to introduce a breaking schema change.
 
-### Version Two
+### Version Two: Tracking Item Status
 
 Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `done`, etc. To account for this change, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`. Let's take a look at the manifest for the updated schema.
 
 ```json
 {
-  "name": "todo-app",
+  "name": "todo-app-schema",
   "version": "2.0.0",
   "dependencies": {
     "settings": "^1.0.0",
@@ -104,11 +104,11 @@ Because a simple `isDone` flag is not very expressive, we decide to replace it w
 }
 ```
 
-As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: true` to a `status` of `done,`.
+As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: true` to a `status` of `done`.
 
 ```json
 {
-  "_id": "todo-item:1b8ee6240d8b5143884127d3408b1a85",
+  "_id": "todo-item@2:ab8ee6240d8b5143884127d3408b1a85",
   "schema": "todo-item",
   "version": 2,
   "title": "Compare apples to oranges",
@@ -118,13 +118,13 @@ As you can see, we had to increase the major version of the todo item schema - a
 }
 ```
 
-### Version Three
+### Version Three: Grouping Items
 
-The final feature we will discuss is sorting todo items into groups. To this end, we introduce a new document type, a `group` document, and require todo items to have a `groupId` property that links them to their respecive group. This brings us to version `3.0.0` of our schema.
+The final feature we will discuss is sorting todo items into groups. To this end, we introduce a new document type, a `group` document, and require todo items to have a `groupId` property that links them to their respective group. This brings us to version `3.0.0` of our schema.
 
 ```json
 {
-  "name": "todo-app",
+  "name": "todo-app-schema",
   "version": "3.0.0",
   "dependencies": {
     "group": "^1.0.0",
@@ -140,7 +140,7 @@ Adding another required property, however, *is* a breaking schema change, just l
 
 ```json
 {
-  "_id": "todo-item:1b8ee6240d8b5143884127d3408b1a85",
+  "_id": "todo-item@3:ab8ee6240d8b5143884127d3408b1a85",
   "schema": "todo-item",
   "version": 3,
   "title": "Compare apples to oranges",
@@ -153,7 +153,7 @@ Adding another required property, however, *is* a breaking schema change, just l
 
 ```json
 {
-  "_id": "group:e302f183a96194f7d19dce0eaf5e3cf8",
+  "_id": "group@1:e302f183a96194f7d19dce0eaf5e3cf8",
   "schema": "group",
   "version": 1,
   "name": "Things I want to do before retiring"
@@ -163,9 +163,15 @@ Adding another required property, however, *is* a breaking schema change, just l
 These are the three major schema versions that we have to maintain in parallel. In order to keep all versions up to date when one piece of data changes it will be necessary to update existing documents in multiple versions. For instance, if a user creates a todo item with their very old app that still runs version one, we need to migrate documents up so that the new todo is not lost on devices that run newer versions. Similarly, we need to migrate changes made with newer apps down to support older apps. Apart from the actual migration logic, this setup requires some additional infrastructure to work well. First, we will need to distribute documents with multiple versions throughout the system, and then we will need to manage documents with multiple versions from inside the applications. Let's take a closer look at these two tasks.
 
 
-## Handling Distributed Data
+## Handling Distributed Multi-Version Data
 
-You know by now that the chesterfield migration is an *eager server-side multi-version migration*. Our implementation of this features, in broad strokes, a micro-service listening to CouchDB's `_changes`-endpoint for document updates and activating different *transformers* on demand which perform the actual document migration, all of which is happening on the server-side database with changes being replicated to client-databases afterwards. [Figure 3](#figure-3) illustrates the idea: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions.
+You know by now that the chesterfield migration is an *eager server-side multi-version migration*. That is quite a mouthful, so let's break it down and see what it means in practice.
+
+* **Server-side** means that the transformation of documents happens on the server-side and is not handled by the clients. This requires us to set up a *backend service* responsible for performing the migration logic. In our case, the work will be done by what we call *transformer modules*.
+* **Eager** refers to the fact that migrations are performed as soon as documents are available. To this end, we will listen to CouchDB's `_changes`-endpoint and react when new document update information is coming in.
+* **Multi-version** means that multiple document versions will be maintained in parallel, allowing us to support multiple application versions at the same time.
+
+[Figure 3](#figure-3) illustrates the idea in broad strokes: when necessary, transformers create multiple versions of documents so that a single shared database can support multiple app versions. From the backend-database, updated documents are then being replicated to the clients.
 
 <figure class="diagram" id="figure-3">
   <img src="/chesterfield-migration/images/per-version-docs.svg" alt="Schematic view of chesterfield migration" />
@@ -177,14 +183,16 @@ You know by now that the chesterfield migration is an *eager server-side multi-v
   </figcaption>
 </figure>
 
+In the next section, we will give our undivided attention to transformer modules. But before that, let us spend some time thinking through the *multi-version* aspect. Two questions in particular will concern us in the following: How can we control which version of the data gets distributed to which part of the system? And how can we manage multiple versions of the same documents in a single database?
+
 
 ### Replication channels
 
-Chesterfield is a *server-side* migration. This means that apps will replicate documents from their local databases to the server-side database where *transformers* will produce all relevant versions of the documents that will then be synchronized across the system. If we dig a little further though, we will find that not *all* versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic and storage if we can prevent newer clients from receiving older documents.
+We want to maintain multiple versions of the same data in parallel because we would like to provide backwards compatibility for older applications. This is why we migrate data on the server and distribute updates across the system. If we dig a little further though, we will find that not *all* document versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic and storage if we can prevent newer clients from receiving older documents.
 
 Do we also need to prevent clients from receiving *newer* document versions than they can currently handle? The answer depends on which side we favor in a trade-off between replication traffic and ease of application update. On the one hand, preventing newer documents from being replicated to clients that are not yet ready results in lower traffic. On the other hand, the newer documents will have to be replicated anyway once the application is updated and is expecting newer schema versions.
 
-And there is more: if we allow newer documents to reach clients that are not yet ready we can support what we would like to call *seamless migrations*, migrations without downtime. This is possible because we could migrate documents up to a new version, distribute them across the system, and only once the clients had enough time to receive the new data would we update them. Once the apps get updated, they find all the new data they need is already in their local database!
+And there is more: if we allow newer documents to reach clients that are not yet ready we can support what we would like to call *seamless migrations*, migrations without downtime. This is possible because we could migrate documents up to a new version, distribute them across the system, and only provide application updates once the clients had enough time to receive the new data. Once the apps get updated, they find all the new data they need is already in their local database!
 
 Our short discussion has elicited two new requirements with respect to replication management:
 
@@ -206,19 +214,23 @@ The following listing shows a selector that would be used by todo apps of versio
 }
 ```
 
-There are a few noteworthy aspects about this selector. We said it's supposed to be used by clients that work with schema version two. Recall from the example manifests that schema version two requires todo items of version two. But since we want apps to receive all newer documents as well we ask to exclude lower versions from the replication. Similarly, this selector will also replicate all documents that are not todo item documents. This includes status and settings documents of version one and higher as well as all other types that may be added in the future. This way, clients can stay open to new schema versions and be prepared for the next seamless migration.
+There are a few noteworthy aspects about this selector. We said it's supposed to be used by clients that work with schema version two. Recall from the example manifests that schema version two requires todo items of version two. But since we want apps to receive all newer documents as well we ask to exclude only lower versions from the replication. Similarly, this selector will also replicate all documents that are not todo item documents. This includes group and settings documents of version one and higher as well as all other types that may be added in the future. This way, clients can stay open to new schema versions and be prepared for the next seamless migration.
 
-As a last point we'd like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding status document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
+[maybe an image here that illustrates how the selector works?]
+
+As a last point we'd like to reiterate that replications take time and may lead to temporarily incomplete data. For instance, the todo item may have already been replicated while the corresponding group document is still missing. But this is a general learning about CouchDB: clients have to be able to deal with this kind of incomplete data anyway. If you really need pieces of data to be present together consider keeping them together in one document.
 
 ### Multiple schema versions in a single database
 
 After successful replication clients will have all necessary data in their local databases, although potentially in multiple versions. This raises the question of how parallel schema versions can be managed within a single database.
 
-An obvious first requirement is that every document's `_id` now has to reflect the version number. This was already addressed when we introduced our taxonomy above. *Single-version* and *multi-db* migrations do not have to modify document identifiers - they can simply reuse them across versions. *Multi-version* migrations, however, cannot afford this convenience. One option for reflecting the version in the `_id` is to simply add it at the end. This would for instance create todo items with `_id`s like `todo-item:ce2f71ee7db9d6decfe459ca9d000df5:v:2`. A transformator performing an up-migration of this document would accordingly have to increase the version number to 3 without modifying the hash so the document could still be identified.
+An obvious first requirement is that every document's `_id` now has to reflect the version number. This was already addressed when we introduced the migration taxonomy in our previous article. *Single-version* and *multi-db* migrations do not have to modify document identifiers - they can simply reuse them across versions. *Multi-version* migrations, however, cannot afford this convenience. One option for reflecting the version in the `_id` is to add it right after the schema title. This would, for instance, create todo items with `_id`s like `todo-item@2:ce2f71ee7db9d6decfe459ca9d000df5`. A transformator performing an up-migration of this document would accordingly have to increase the version number to 3 without modifying the hash so the document could still be identified.
 
-Be careful, though, not to rely on document versions when it comes to imlementing associations. If we associate, say, an address with a user through a `userId`-attribute on the address, this should not specify the version of the user document. Otherwise migrations could destroy existing associations.
+All the example documents in the previous section aleady carry their version in the `_id`. The astute reader may have noticed, however, that these are only the major numbers of the document versions. If we are using semantic versioning for schemas, why does it say `todo-item@2:<uuid>` instead of `todo-item@2.0.0:<uuid>`? The reason for this is that any application that can work with version `2.0.0` can also work with version `2.1.0` or `2.13.5`. If it couldn't, there would have been a breaking change in the schema and we would have had to move to version `3` at some point. In this sense, all documents of the same major version can be treated as belonging to the same collection. Hence, there is no need to be overly specific with the `_id`.
 
-Apart from reflecting the schema version in the document identifier we have made sure from early on to keep `schema` and `version`-attributes in each document. This will pay off now as clients need to retrieve exactly the version of a piece of data that they can currently work with. Traditionally most data was retrieved from CouchDB via *views* but once again Mango selectors are a recent, very performant alternative. By way of an example consider a client working with data schema version two that wants to display a list of todos. The same todo may exist in multiple parallel versions in the database, but the client can retrieve exactly the version it knows how to handle using the following selector.
+As another aside, be careful not to rely on document versions when it comes to imlementing associations. If we associate, say, an address with a user through a `userId`-attribute on the address, this should not specify the version of the user document. Otherwise migrations could destroy existing associations.
+
+Apart from reflecting the schema version in the document identifier we have made sure from early on to keep `schema` and `version`-attributes in each document. This will pay off now as clients need to retrieve exactly the version of a piece of data that they can currently work with. Traditionally most data was retrieved from CouchDB via *views* but once again Mango selectors are a recent, very performant alternative. By way of an example consider a client working with data schema version two that wants to display a list of todos. The same todo item may exist in multiple versions in the database, but the client can retrieve exactly the version it knows how to handle using the following selector.
 
 ```json
 {
@@ -233,9 +245,10 @@ Apart from reflecting the schema version in the document identifier we have made
 }
 ```
 
-These three guiding principles - reflecting the document version in the identifier, establishing associations through raw ids, and querying documents by relevant `schema` and `version` - allow  clients to handle multiple parallel schema versions in a single database. All this is possible without having to change any URLs when communication with the server-side database.
+These three guiding principles - reflecting the document version in the identifier, establishing associations through raw ids, and querying documents by relevant `schema` and `version` - allow  clients to handle multiple parallel schema versions in a single database. All this is possible without having to change any URLs when communicating with the server-side database.
 
 Before moving on to see how the transformer engine works under the hood we would like to address a concern you may have regarding the size of local databases. Memory is still a somewhat scarce resource especially for mobile clients. Would the approach we have sketched out here not bloat client databases unnecessarily by keeping legacy schema versions around when they are in fact no longer needed? As user data builds up, this may indeed become a problem at some point. If that's the case, don't despair, as there are ways to perform some data compaction. We suggest creating an additional local database on the client and running a filtered replication that replicates only relevant document versions. After that, switch over to the new database and discard the old one alongside all legacy schema versions.
+
 
 ## Transformer modules
 
