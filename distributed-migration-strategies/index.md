@@ -278,7 +278,11 @@ For now, this piecemeal approach of worrying about one user and one database at 
 >
 > Ben Nadel [on Twitter](https://twitter.com/BenNadel/status/918604059304779776)
 
-The first weeks have passed, marketing has done a great job and our app is quite popular, especially with young professional single parents in urban areas. Feature requests are coming in and a decision is made to enhance the product. So we face a new requirement:
+The first weeks have passed, marketing has done a great job and our app is quite popular, especially with young professional single parents in urban areas. Feature requests are coming in and a decision is made to enhance the product. If we are lucky, we get away with some amendments to the schema we already have, but let's go step by step.
+
+#### Version One: Emphasis and Theming
+
+As a first new requirement, users would like to put special emphasis on some of their todos.
 
 ```cucumber
 As a web app user
@@ -296,7 +300,7 @@ I want to choose between different color themes
 so that I can express myself by personalizing my tools.
 ```
 
-Obviously, this feature has no direct implications for the structure of todo items. We decide to introduce a new document type, a `settings` document, that will store the color information and perhaps other general preferences that will come up in the future. Since we only want a single settings document per database, there is no need to pick some unwieldy uuid as `_id` property. We can go for something simple instead as the following listing of an exemplary `settings` document illustrates.
+Obviously, this feature has no direct implications for the structure of todo items. We decide to introduce a new document type, a `settings` document, that will store the color information and perhaps other general preferences that will come up in the future. Since we only want a single settings document per database, there is no need to pick some unwieldy uuid as `_id` property. We can go for something simple instead, as the following listing of an exemplary `settings` document illustrates.
 
 ```json
 {
@@ -308,6 +312,8 @@ Obviously, this feature has no direct implications for the structure of todo ite
 ```
 
 As with the introduction of an `isImportant` property, the new settings document is rather unobtrusive. Since it has just been introduced, there are no old versions around that could cause trouble for the new version of the app. And the previous version of the app would not know what to do with those documents anyways and could simply ignore them. As a general rule, creating documents with unknown types should never affect applications. For CouchDB, which relies heavily on views to retrieve data, this behavior can be achieved by *whitelisting* documents at the access level. In other words: when building up a view, confirm for each document that its type is known, and ignore it otherwise. This way, new document types can be added without affecting existing behavior.
+
+#### Version Two: Progress Tracking and Groups
 
 So far we have amended the todo item schema and introduced a new document type. Both operations are non-breaking feature changes to our data schema according to semantic versioning. But now let's look at yet another feature request that will have a deeper impact on our data format:
 
@@ -330,7 +336,7 @@ We already have the boolean `isDone` property that keeps track of an item's prog
 }
 ```
 
-As we are still wondering about how to solve the problem of transforming the old documents in the user databases into new ones, product knocks on our door with the latest new requirement. At first, we are worried that these are too many requirements at a time, but we find that this one poses an interesting new challenge and allows us to explain some more central concepts, so we take a closer look.
+As we are still wondering about how to solve the problem of transforming the old documents in the user databases into new ones, product knocks on our door with the latest new requirement.
 
 ```cucumber
 As a web app user
@@ -338,18 +344,54 @@ I want to assign each todo item to a group
 so that I can isolate tasks that belong together in order to be more focused.
 ```
 
-There is a straightforward and time-proven way to solve a grouping task like this: *one-to-many associations*. We can create a document for each group and then link todo items to groups by storing a group identifier along with each item. The identifier that establishes this link is sometimes referred to as a *foreign key*. Before looking at the schema implications of this approach, we would like to add a more general note on associations in document databases because we have seen how this topic can trip up people new to the technology.
+Every todo item needs a group. So we could require a `groupName` property for todo items. However, we anticipate that people may want to add more information, for instance a group description, later on. This is why we try to be future-proof by embedding a `group` document into each todo item. This freedom to nest one document within another is one of the perks of working with a document oriented database, so why not make use of it.
 
-*Associations* describe connections between entities: *one-to-one*, *one-to-many*, or *many-to-many*. In *relational database design*, associations are typically established via *foreign keys* as described above. This pattern is so common that people sometimes believe it actually defines what a relational database is in the first place and they are surprised to see it appear in other places as well: "How can there be foreign keys in CouchDB documents? I thought it's not a relational database!" But associations are not what makes relational databases relational – *relations* are. A [relation](https://en.wikipedia.org/wiki/Relation_(database)) is a set of tuples of values with predefined types. That's all. There are operations like *selections* and *joins* defined on these relations (cf. [relational algebra](https://en.wikipedia.org/wiki/Relational_algebra)) that enable the complex queries and powerful query optimizations we all know and love. Associations play an important role in those operations, but the general concept goes far beyond relational databases themselves. Linking entities by their identifier is a very versatile strategy of data design, as we shall see below. Long story short: *relations* are not *associations*.
+Let's say developers have convinced us to *require*, not just *allow*, the additional group information. They argue it makes app development easier if every todo item carries its group information around. Requiring more information means we have to introduce another breaking change because old documents will not be assigned to any group. Luckily we have not released the new schema version yet, so we can bundle the two breaking changes into one release. If we assign it to a default group, the todo item from above now looks like this:
 
-To prepare the `todo-item` and `group` association we first need to define `group` documents. Since we don't have any other requirements yet, let's simply give each group a name. Here's an exemplary `group` document for illustration purposes, so we are all on the same page:
+```json
+{
+  "_id": "todo-item:cde95c3861f9f585d5608fcd35000a7a",
+  "schema": "todo-item",
+  "version": 2,
+  "title": "reimplement my pet project in Rust",
+  "status": "started",
+  "group": {
+    "name": "default"
+  },
+  "createdAt": "2017-11-14T00:00:00.000Z"
+}
+```
+
+#### Version Three: Group Avatars
+
+We thought we would be future-proof, at least for a while, by using an embedded group document. But as soon as the new release is on the market, people are starting to ask for group avatars.
+
+```cucumber
+As a web app user
+I want to add an avatar to a group
+so that I can group todo items by emotional content.
+```
+
+This is a problem for our schema, of course. Embedding group information into each todo item document is doable, but embedding an image would require us to repeatedly store the same image information over and over again with every new todo item. This is not acceptable. Instead, we have to move the group information out into dedicated group documents that can be shared among many todo items. This will lead us to our next breaking change.
+
+There is a straightforward and time-proven way to solve a grouping task in this way: *one-to-many associations*. We can create a document for each group and then link todo items to groups by storing a group identifier along with each item. The identifier that establishes this link is sometimes referred to as a *foreign key*. Before looking at the schema implications of this approach, we would like to add a more general note on associations in document databases because we have seen how this topic can trip up people new to the technology.
+
+*Associations* describe connections between entities: *one-to-one*, *one-to-many*, or *many-to-many*. In *relational database design*, associations are typically established via *foreign keys* as described above. This pattern is so common that people sometimes believe it actually defines what a relational database is in the first place. Then they are surprised to see it appear in other places as well: "How can there be foreign keys in CouchDB documents? I thought it's not a relational database!" But associations are not what makes relational databases relational – *relations* are. A [relation](https://en.wikipedia.org/wiki/Relation_(database)) is a set of tuples of values with predefined types. That's all. There are operations like *selections* and *joins* defined on these relations (cf. [relational algebra](https://en.wikipedia.org/wiki/Relational_algebra)) that enable the complex queries and powerful query optimizations we all know and love. Associations play an important role in those operations, but the general concept goes far beyond relational databases themselves. Linking entities by their identifier is a very versatile strategy of data design, as we shall see below. Long story short: *relations* are not *associations*.
+
+To prepare the `todo-item` and `group` association we first need to define `group` documents. So far, groups need to have a name and an avatar, which can be added as a an *attachment* in CouchDB. Here's an exemplary `group` document for illustration purposes, so that we are all on the same page:
 
 ```json
 {
   "_id": "group:e302f183a96194f7d19dce0eaf5e3cf8",
   "schema": "group",
   "version": 1,
-  "name": "Things I also want to do"
+  "name": "Things I also want to do",
+  "_attachments": {
+    "avatar":   {
+      "content-type": "image/jpg",
+      "data": "01010101000111101010110001010"
+    }
+  }
 }
 ```
 
@@ -370,11 +412,9 @@ In order to associate a todo item with a group, we can use the group document's 
 
 The `groupId` attribute clearly establishes the association of the todo item with the group above. It is also easy to see how multiple todo items could belong to this group if each of them specified the same group id.
 
-It is also interesting that the todo item schema is at version three already. Why is that? It's because we've had a long talk with our developers and we decided to make their lives easier by *requiring* the `groupId` attribute. Every todo item *must* belong to exactly one group and we can make sure this is the case through schema *validations*. When developers can rely on this assumption, the application code becomes simpler and more maintainable. That's good for business. But as before there are documents from the past that already exist in user databases. These do not have group ids and they are *invalid* now. So by adding a *required* attribute to the schema, we have introduced another *breaking change*. This is why we increase the schema version once more.
-
 We now have a good idea about how to adapt the data schema in order to react to the latest feature requests. We have even found a way to make developers happy by enforcing their expectations through schema validations. At this point we would like to release a new version of the web app that allows users (1) to mark todos as important, (2) to change the color scheme of their apps, (3) to choose from a number of progress states and (4) to sort their todo items into groups.
 
-But wait! We have not solved the problem of how to update existing todo items. Increasing the schema version for new documents is all very well, but which steps can we take to make sure that old documents can adhere to the new version? In principle, we know what to do:
+But wait! We have not talked about the problem of how to update existing todo items. Increasing the schema version for new documents is all very well, but which steps can we take to make sure that old documents can adhere to the new version? In principle, we know what to do:
 
 1. We have to take all the old documents, remove the `isDone` property and replace it with a sensible mapping to some `status` (like `isDone` being `false` means `status` is `active`),
 2. And then we have to assign each existing document to some default group by setting the `groupId` to the default group's id.
