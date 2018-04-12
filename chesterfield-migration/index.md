@@ -27,7 +27,7 @@ Migrating data is not trivial. Migrating distributed data that is needed in lots
 
 The strategy we are presenting here is an *eager server-side multi-version migration*. If you are not familiar with this terminology, you may want to revisit the [migration taxonomy](/distributed-migration-strategies/#a-taxonomy-for-reasoning-about-migrations) we have introduced previously. But if you decide to read on, rest assured that we will cover all aspects necessary to follow the discussion in this article.
 
-In what follows, we will first build up a sufficiently complex use case for distributed migrations based on a todo application. This article is not a tutorial, but we feel that a good example will help us bring across some points more concisely. Next, we will talk about CouchDB. This is our database of choice and we want to take a closer look at how it supports what we want to do. In particular, we need to think about how to design the schema so that it can support the operations we want to perform. With these preliminaries out of the way, we will then invite you to a detailled technical discussion about *transformers*, the main work horse of our migration strategy, before concluding our discussion with a summary of what we have learned.
+In what follows, we will first build up a sufficiently complex use case for distributed migrations based on a todo application. This article is not a tutorial, but we feel that a good example will help us bring across some points more concisely. Next, we will talk about CouchDB. This is our database of choice and we want to take a closer look at how it supports what we want to do. In particular, we need to think about how to design the schema so that it can support the operations we want to perform. With these preliminaries out of the way, we will then invite you to a detailled technical discussion about *transformers*, the main workhorse of our migration strategy, before concluding our discussion with a summary of what we have learned.
 
 <figure>
   <img src="/chesterfield-migration/images/chesterfield.jpg" alt="The authors: Matthias and Johannes" />
@@ -46,7 +46,7 @@ In order to have a memorable reference, we are going to brand our strategy as *c
 
 We want to build large systems featuring offline-capable applications and clients on multiple platforms. We want to support clients that require different schema versions of application data. We want to provide backwards-compatibility while staying agile. Because it is easy to get lost in a complex scenario like this, we would like to describe an example use case that brings all these requirements together. In this section, you will find a concise summary of the [example todo application](/distributed-migration-strategies/#setting-the-stage-a-toy-problem) we have designed in our introductory article. Feel free to skip this section if the setup is fresh in your memory, or read on for a quick refresher of how the schema evolved across the different versions of the app.
 
-### Version One: Starting Simple
+### Version One: Emphasis and Theming
 
 In the beginning, there are only todos. We start with a `db-per-user` setup where users have all their todo items in their own database. CouchDB mananges data synchronization across multiple clients, and the schema only comprises the most basic features every todo item exhibits. In particular, each todo item is required to have a `title` and an `isDone` property. This is version `1.0.0` of the schema which only consists of version `1.0.0` of todo item documents.
 
@@ -89,9 +89,9 @@ Later on, when we discuss the more intricate details of how to migrate between d
 
 At this point, our todo application is out on the market. Data schema `1.1.0` supports various versions of iOS and Android apps, webapps, and service workers that form a big software ecosystem. Some of these clients have offline-capabilities, which implies that they are not easily accessible for maintenance and might miss updates. So far, this is not a huge problem as far as the schema is concerned. Unfortunately, we are just about to introduce a breaking schema change.
 
-### Version Two: Tracking Item Status
+### Version Two: Progress Tracking and Grouping
 
-Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `done`, etc. To account for this change, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`. Let's take a look at the manifest for the updated schema.
+Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `done`, etc. As a second feature, we add some grouping information to each todo item. This way, users can sort their todos into groups. To account for these changes, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`, and we embed a `group` document into every todo item. Let's take a look at the manifest for the updated schema.
 
 ```json
 {
@@ -104,7 +104,7 @@ Because a simple `isDone` flag is not very expressive, we decide to replace it w
 }
 ```
 
-As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: true` to a `status` of `done`.
+As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us to migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. The same considerations are valid for adding the group information. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: true` to a `status` of `done` and have assigned the todo to a *default* group.
 
 ```json
 {
@@ -114,13 +114,16 @@ As you can see, we had to increase the major version of the todo item schema - a
   "title": "Compare apples to oranges",
   "status": "done",
   "isImportant": true,
+  "group": {
+    "name": "default"
+  },
   "createdAt": "2018-04-01T00:00:00.000Z"
 }
 ```
 
-### Version Three: Grouping Items
+### Version Three: Group Avatars
 
-The final feature we will discuss is sorting todo items into groups. To this end, we introduce a new document type, a `group` document, and require todo items to have a `groupId` property that links them to their respective group. This brings us to version `3.0.0` of our schema.
+The final feature we will discuss is adding avatars to groups. To this end, we will pull the embedded group documents out of todo items and into their own document type. Todo items will then be required to specify a `groupId` property that links them to their respective group. This is yet another breaking change that brings us to version `3.0.0` of our schema.
 
 ```json
 {
@@ -136,7 +139,7 @@ The final feature we will discuss is sorting todo items into groups. To this end
 
 Introducing a new document type on its own does not constitute a breaking change as we have seen when adding the `settings` document above. The reason is that no application can *require* a document to be present - documents may always come in late in the replication process. Apps must always be prepared to deal with missing documents.
 
-Adding another required property, however, *is* a breaking schema change, just like adding the required `status` was. Once again, we need to increase the major version number of the todo item schema after adding the `groupId`. As consequence, the whole schema's version must be increased. The following listings show the updated todo item with its new group.
+Adding the required `groupsId`, however, *is* a breaking change. Incidentally, removing the previously required embedded `group` document is already a breaking change on its own. Once again, we need to increase the major version number of the todo item schema after adding the `groupId`. As consequence, the whole schema's version must be increased. The following listings show the updated todo item with its new group.
 
 ```json
 {
@@ -156,7 +159,13 @@ Adding another required property, however, *is* a breaking schema change, just l
   "_id": "group@1:e302f183a96194f7d19dce0eaf5e3cf8",
   "schema": "group",
   "version": 1,
-  "name": "Things I want to do before retiring"
+  "name": "Things I want to do before retiring",
+  "_attachments": {
+    "avatar": {
+      "content-type": "image/jpg",
+      "data": "00001001110100101010a1012"
+    }
+  }
 }
 ```
 
@@ -247,16 +256,16 @@ These three guiding principles - reflecting the document version in the identifi
 
 All the example documents in the previous section aleady carry their version in the `_id`. The astute reader may have noticed, however, that these are only the major numbers of the document versions. If we are using semantic versioning for schemas, why does it say `todo-item@2:<uuid>` instead of `todo-item@2.0.0:<uuid>`? One reason for this is that any application that can work with version `2.0.0` can also work with version `2.1.0` or `2.13.5`. If it couldn't, there would have been a breaking change in the schema and we would have had to move to version `3` at some point. In this sense, there is no need to be overly specific in the `_id`. Another, more pragmatic, reason is that there is currently no Mango selector that could compare parts of ids by their semantic version number. If there was such a selector - we would propose to name it *Semsel*, the *semantic selector* - it would be easier to retrieve all documents that share a major version. In this case, we would reconsider the naming convention we are currently using.
 
-Before moving on to see how the transformer engine works under the hood we would like to address a concern you may have regarding the size of local databases. Memory is still a somewhat scarce resource especially for mobile clients. Would the approach we have sketched out here not bloat client databases unnecessarily by keeping legacy schema versions around when they are in fact no longer needed? As user data builds up, this may indeed become a problem at some point. If that's the case, don't despair, as there are ways to perform some data compaction. We suggest creating an additional local database on the client and running a filtered replication that replicates only relevant document versions. After that, switch over to the new database and discard the old one alongside all legacy schema versions.
+A final concern we'd like to address is the size of local databases. Memory is still a somewhat scarce resource, especially for mobile clients. If we keep legacy schema versions around, woule that not bloat client databases unnecessarily? As user data builds up, this may indeed become a problem at some point. But don't despair, there are ways to perform some data compaction. In particular, we suggest creating an additional local database on the client and running a filtered replication that replicates only relevant document versions. After that, switch over to the new database and discard the old one alongside all legacy schema versions.
 
 
 ## Transformer modules
 
-We are finally ready to take a close look at transformer modules, the main workhorse of our migration strategy. Transformer modules, or transformers for short, live on the server, they are responsible for noticing when a document has to be migrated and they create and persist new document versions. These are three different tasks - listening, creating, and persisting - and our transformers will be composed of three corresponding components. To be more precise, each transformer module will consist of a *registry*, a *migration logic unit*, and an *update handler*. Let's introduce each of those in turn and see what considerations have led us to design them the way we did.
+We are finally ready to take a close look at how the transformer engine, the centerpiece of our migration strategy, works under the hood. Transformer modules, or transformers for short, live on the server, they are responsible for noticing when a document has to be migrated and they create and persist new document versions. These are three different tasks - listening, creating, and persisting - and our transformers will be composed of three corresponding components. To be more precise, each transformer module will consist of a *registry*, a *migration logic unit*, and an *update handler*. Let's introduce each of those in turn and see what considerations have led us to design them the way we did.
 
 ### The registry
 
-Transformers are supposed to migrate documents once they are replicated to the server-side database. To figure out when to get active, transformers can inspect CouchDB's `_changes`-endpoint (either directly or via a helpful service that creates a changes feed for this purpose) to get a rough idea of what's happening on the database. In particular, they can find out which document ids have been involved in any database event. Because we designed document ids to reflect the document schema transformers have a way of knowing when to perform a migration: every time a database event is happening, a transformer can check if the document involved is of the type and version it is responsible for. And how do transformers know which documents are their responsibility? That's what the registry is for.
+Transformers are supposed to migrate documents once they are replicated to the server-side database. To figure out when to get active, transformers can inspect CouchDB's `_changes`-endpoint (either directly or via a helpful service that creates a changes feed for this purpose) to get a rough idea of what's happening on the database. In particular, they can find out which document ids have been involved in any database event. Because we designed document ids to reflect the document schema, transformers have a way of knowing when to perform a migration: every time a database event is happening, a transformer can check if the document involved is of the type and version it is responsible for. And how do transformers know which documents are their responsibility? That's what the registry is for.
 
 The general idea is easy enough, but designing an understandable and maintainable system of transformer-responsiblities will be more challenging. If you remember from our discussion above, the fact that *Chesterfield* is a *multi-version* migration means that we will need to migrate documents between all possible (currently supported) versions. Every `todo-item-1` needs to be migrated to every other supported version and every other supported version needs to be migrated to `todo-item-1` - on every document creation and every document update. To manage the upcoming complexity inherent in this task we suggest to begin by introducing *lean* transformers that only perform the most basic of migration tasks: changing a single document type from one version to another. For instance, there might be a dedicated transformer just to change `todo-item-2` documents to `todo-item-1` documents.
 
@@ -277,11 +286,11 @@ To illustrate the failure scenario, let's playback in *slow-motion*, as it were,
 
 The solution to this problem is a *target-oriented* responsibility design. Transformers should be written with respect to the document classes they are *outputting*, not the ones they are reading. Figure 4 illustrates the different approaches. For our example this would mean that our todo item transformer would not focus on *reading* `todo-item-2` documents but on *creating* `todo-item-1` documents. This looks like no more than a change of perspective, but it makes a huge difference for a correct implementation. The registry for this transformer would now contain all document types that might play a role for creating `todo-item-1` documents, namely `todo-item-2` as well as `status-1`. Everytime any of these documents arrive, the transformer comes alive and tries to create or update a `todo-item-1` document. Sometimes this process may fail as we just saw, if replication is still ongoing, but eventually all relevant documents will have been replicated and the migration can succeed. To be very clear about this new learning, let's summarize our considerations as a basic rule:
 
-> The registry of a target-oriented transformer should have an entry for every document schema version that can contain relevant information for the documents the transformer is supposed to output.
+* The registry of a target-oriented transformer should have an entry for every document schema version that can contain relevant information for the documents the transformer is supposed to output.
 
 The impact of this new perspective will become even clearer once we discuss the inner workings of the transformer's *migration logic unit* in the next section. But before we go there, now is a good time for a short aside on the number of transformers we will have to write and maintain in order for this approach to work.
 
-#### Aside: a rough and ready complexity analysis
+#### Aside: Avoiding Quadratic Comlpexity
 
 Migrating between all existing (or at least all supported) versions of a data schema might raise problems of maintainability through the sheer number of transformers necessary. A bit of accounting can help us get the discussion started. Say we start off with a single document type that is in version `v1`. We now update the schema to `v2`, so we will need to provide two transformers, one that generates `v1` documents from `v2` and one that generation `v2` documents from `v1`. After the next update to `v3` there are now already *six* transformers necessary to support conversion from every version to every other. In general, from every schema version that has ever existed in the system there may still be some documents around. So if we want to support all app versions we will have to provide as many transformers as there are ordered pairs, meaning $n (n - 1)$ transformers if the current data schema has version `n`. That's $n^2 - n$ - the amount of transformers grows quadratically with the number of supported schema versions! And we have only just considered a single document type.
 
