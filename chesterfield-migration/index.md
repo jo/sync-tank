@@ -23,7 +23,7 @@ published {{ page.publishedAt | date: '%B %d, %Y' }}, last updated {{ page.lastU
 
 ## Introduction
 
-Migrating data is not trivial. Migrating distributed data that is needed in lots of places at the same time can quickly become a formidable challenge. In a [recent article](/distributed-migration-strategies/), we have addressed many of the complications that schema migrations in distributed systems may face. In this article, we want to go beyond the problem description and start discussing potential solutions.
+Migrating data is not trivial. Migrating *distributed* data that is needed in lots of places at the same time can quickly become a formidable challenge. In a [recent article](/distributed-migration-strategies/), we have addressed many of the complications that schema migrations in distributed systems may face. In this article, we want to go beyond the problem description and start discussing potential solutions.
 
 The strategy we are presenting here is an *eager server-side multi-version migration*. If you are not familiar with this terminology, you may want to revisit the [migration taxonomy](/distributed-migration-strategies/#a-taxonomy-for-reasoning-about-migrations) we have introduced previously. But if you decide to read on, rest assured that we will cover all aspects necessary to follow the discussion in this article.
 
@@ -39,12 +39,12 @@ In what follows, we will first build up a sufficiently complex use case for dist
   </figcaption>
 </figure>
 
-In order to have a memorable reference, we are going to brand our strategy as *chesterfield migration*. A chesterfield is a type of luxurious couch, and we feel this is an appropriate term as we are going to describe an approach that meets all kinds of challenging requirements comfortably – and is based upon CouchDB.
+In order to have a memorable reference, we are going to brand our migration strategy as *chesterfield migration*. A chesterfield is a type of luxurious couch, and we feel this is an appropriate term as we are going to describe an approach that meets all kinds of challenging requirements comfortably – and is based upon CouchDB.
 
 
 ## Revisiting an example application
 
-We want to build large systems featuring offline-capable applications and clients on multiple platforms. We want to support clients that require different schema versions of application data. We want to provide backwards-compatibility while staying agile. Because it is easy to get lost in a complex scenario like this, we would like to describe an example use case that brings all these requirements together. In this section, you will find a concise summary of the [example todo application](/distributed-migration-strategies/#setting-the-stage-a-toy-problem) we have designed in our introductory article. Feel free to skip this section if the setup is fresh in your memory, or read on for a quick refresher of how the schema evolved across the different versions of the app.
+We want a lot of things. We want to build large systems featuring offline-capable applications and clients on multiple platforms. We want to support clients that require different schema versions of application data. We want to provide backwards-compatibility while staying agile. Because it is easy to get lost in a complex scenario like this, we would like to describe an example use case that brings all these requirements together. In this section, you will find a concise summary of the [example todo application](/distributed-migration-strategies/#setting-the-stage-a-toy-problem) we have designed in our introductory article. Feel free to skip this section if the setup is fresh in your memory, or read on for a quick refresher of how the schema evolved across the different versions of the app.
 
 ### Version One: Emphasis and Theming
 
@@ -91,7 +91,7 @@ At this point, our todo application is out on the market. Data schema `1.1.0` su
 
 ### Version Two: Progress Tracking and Grouping
 
-Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `done`, etc. As a second feature, we add some grouping information to each todo item. This way, users can sort their todos into groups. To account for these changes, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`, and we embed a `group` document into every todo item. Let's take a look at the manifest for the updated schema.
+Because a simple `isDone` flag is not very expressive, we decide to replace it with a `status` property that can have one of many states. Now todo items can be `active`, `blocked`, `halted`, `done`, etc. As a second feature, we add the ability to group todo items. This is achieved by storing some group information on each item. To account for these changes, we have to update the schema definition of todo item documents. The required `isDone` property is replaced with a required `status`, and we embed a `group` document into every todo item. Let's take a look at the manifest for the updated schema.
 
 ```json
 {
@@ -104,7 +104,7 @@ Because a simple `isDone` flag is not very expressive, we decide to replace it w
 }
 ```
 
-As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with the `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us to migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. The same considerations are valid for adding the group information. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: true` to a `status` of `done` and have assigned the todo to a *default* group.
+As you can see, we had to increase the major version of the todo item schema - and hence the major version of the whole schema. Replacing `isDone` with `status` is a breaking change for two reasons. First of all, existing apps are expecting documents to have the `isDone` property, so they will not be able to handle documents of the new format. And secondly, once we have built apps that can work with the new documents, these apps won't be able to read the existing documents. This requires us to migrate old documents up to the new format - and to migrate documents of the new format down to the old one if we want to maintain backwards compatibility. The same considerations are valid for adding the group information. Before moving on, here is the todo item from above in it's new, updated version. We have mapped the old `isDone: true` to a `status` of `done` and have assigned the todo to a group named "default".
 
 ```json
 {
@@ -139,7 +139,7 @@ The final feature we will discuss is adding avatars to groups. To this end, we w
 
 Introducing a new document type on its own does not constitute a breaking change as we have seen when adding the `settings` document above. The reason is that no application can *require* a document to be present - documents may always come in late in the replication process. Apps must always be prepared to deal with missing documents.
 
-Adding the required `groupsId`, however, *is* a breaking change. Incidentally, removing the previously required embedded `group` document is already a breaking change on its own. Once again, we need to increase the major version number of the todo item schema after adding the `groupId`. As consequence, the whole schema's version must be increased. The following listings show the updated todo item with its new group.
+Adding the required `groupId`, however, *is* a breaking change. Incidentally, removing the previously required embedded `group` document is already a breaking change on its own. Once again, we need to increase the major version number of the todo item schema after adding the `groupId`. As a consequence, the whole schema's version must be increased. The following listings show the updated todo item with its new group.
 
 ```json
 {
@@ -176,7 +176,7 @@ These are the three major schema versions that we have to maintain in parallel. 
 
 You know by now that the chesterfield migration is an *eager server-side multi-version migration*. That is quite a mouthful, so let's break it down and see what it means in practice.
 
-* **Server-side** means that the transformation of documents is not performed by the clients but by server-side processes. This requires us to set up *backend service* that know how to handle the migration logic. In our case, the work will be done by what we call *transformer modules*.
+* **Server-side** means that the transformation of documents is not performed by the clients but by server-side processes. This requires us to set up *backend service* that knows how to handle the migration logic. In our case, the work will be done by what we call *transformer modules*.
 * **Eager** refers to the fact that migrations are performed as soon as documents are available. To this end, we will listen to CouchDB's `_changes`-endpoint and react when new document update information is coming in.
 * **Multi-version** means that multiple document versions will be maintained in parallel, allowing us to support multiple application versions at the same time.
 
@@ -197,7 +197,7 @@ In the next section, we will give our undivided attention to transformer modules
 
 ### Replication Channels
 
-We want to maintain multiple versions of the same data in parallel because we would like to provide backwards compatibility for older applications. This is why we migrate data on the server and distribute updates across the system. If we dig a little further though, we will find that not *all* document versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic and storage if we can prevent newer clients from receiving older documents.
+We want to maintain multiple versions of the same data in parallel because we would like to provide backwards compatibility for older applications. This is why we migrate data on the server and distribute updates across the system. If we dig a little further, though, we will find that not *all* document versions will have to be propagated to *all* clients. For instance, if a new client produces a todo item according to version three, and if the server migrates this document down to versions one and two, the newer client would not be interested in receiving the older documents. We can save a lot of traffic and storage if we can prevent newer clients from receiving older documents.
 
 Do we also need to prevent clients from receiving *newer* document versions than they can currently handle? The answer depends on which side we favor in a trade-off between replication traffic and ease of application update. On the one hand, preventing newer documents from being replicated to clients that are not yet ready results in lower traffic. On the other hand, the newer documents will have to be replicated anyway once the application is updated and is expecting newer schema versions.
 
