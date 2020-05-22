@@ -36,4 +36,4 @@ Johannes and Matthias
 
 ---
 
-The Sync Tank website is [hosted on GitHub](https://github.com/jo/sync-tank). We're [@tfschmiz](https://twitter.com/tfschmiz) and [@MatthiasDumke](https://twitter.com/MatthiasDumke) on Twitter.
+The Sync Tank website is [hosted on GitHub](https://github.com/jo/sync-tank). We're [@TFisTF](https://twitter.com/TFisTF) and [@MatthiasDumke](https://twitter.com/MatthiasDumke) on Twitter.
