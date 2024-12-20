@@ -426,7 +426,7 @@ But the question remains: how do we accomplish this in practice? How do we actua
 We are now at a point where a new version of an application may be confronted with older documents in the system that it does not know how to handle. But this prospect does not scare us because there is a common practice that is used in this scenario, and one that you probably know well already. We will call this the *traditional server-side migration*.
 
 <figure class="diagram" id="figure-1">
-  <img src="/distributed-migration-strategies/images/transactional-migration.svg" alt="Schematic view of traditional server-side migration" />
+  <img src="./images/transactional-migration.svg" alt="Schematic view of traditional server-side migration" />
   <figcaption>
     <b>Figure 1: Traditional Server-Side Migration.</b>
     <span>
@@ -522,7 +522,7 @@ When we introduced the `isImportant` flag to our data schema we mentioned only p
 The examples that led us to think about migrations proper were the introductions of the `status` attribute and the grouping functionality which changed the todo items and called for a new document type. During the migration process we had to choose a correct `status` and assign existing todo-items to some default group, and potentially create the default group document in the first place. Perhaps all of this could be the responsibility of the apps instead! When a new application encounters a todo without a group, it can assign it to the default group *on the fly*, as it were. And when it encounters a todo without a `status`, it can look at its `isDone` property and infer the status, just as the server-side migration would. This way, the introduction of a new schema would not immediately break old apps.
 
 <figure class="diagram" id="figure-2">
-  <img src="/distributed-migration-strategies/images/live-migration.svg" alt="Schematic view of adapter migration" />
+  <img src="./images/live-migration.svg" alt="Schematic view of adapter migration" />
   <figcaption>
     <b>Figure 2: Adapter Migration.</b>
     <span>
