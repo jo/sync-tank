@@ -15,7 +15,7 @@ Syncing data is more than a technical problem. Reliable synchronization is at th
 
 Syncing data is also a technical problem. And not a small one. The articles you will find on Sync Tank reflect our learnings from building syncronizing systems in the wild. We have a history of working with Apache CouchDB that will play a role in many of our discussions. Having said that, many of the conceptual points we make will generalize to other technologies as well.
 
-* [Distributed Migration Strategies](/distributed-migration-strategies/). Schema migrations are a common task in any kind of application development. But migrating data in distributed systems poses a number of formidable challenges. You can find a detailed problem exposition, a collection of good practices when working with document databases, and an invitation to join the discussion, in our opening article.
+* [Distributed Migration Strategies](./distributed-migration-strategies/). Schema migrations are a common task in any kind of application development. But migrating data in distributed systems poses a number of formidable challenges. You can find a detailed problem exposition, a collection of good practices when working with document databases, and an invitation to join the discussion, in our opening article.
 
 
 #### About Sync Tank
